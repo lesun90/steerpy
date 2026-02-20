@@ -1,0 +1,3900 @@
+<!DOCTYPE html>
+<!-- SteerPy author, 2026. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SteerPy · Browser-Based Autonomous Driving Simulator</title>
+<meta name="description" content="SteerPy is a browser-based autonomous driving simulator for learning planning and control, with quick code experiments using Python, real-time visualization, and no heavy robotics setup.">
+<meta name="keywords" content="autonomous driving, self-driving simulator, robotics learning, path planning, motion planning, control systems, python simulator, browser simulator">
+<meta name="author" content="SteerPy author">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#0a0c10">
+<link rel="canonical" href="/steerpy.html">
+
+<meta property="og:title" content="SteerPy · Browser-Based Autonomous Driving Simulator">
+<meta property="og:description" content="Learn autonomous driving planning and control in a browser-based simulator with instant Python iteration and real-time visualization.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="/steerpy.html">
+<meta property="og:site_name" content="SteerPy">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SteerPy · Browser-Based Autonomous Driving Simulator">
+<meta name="twitter:description" content="A browser-based playground for autonomous driving planning and control with instant Python feedback.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "SteerPy",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web",
+  "description": "Browser-based autonomous driving simulator focused on planning and control with Python and real-time visualization.",
+  "url": "/steerpy.html"
+}
+</script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/material-darker.min.css">
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/python/python.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c10;--panel:#0e1117;--border:#1c2030;
+  --accent:#00e5ff;--accent2:#7c3aed;
+  --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;
+  --text:#e2e8f0;--muted:#4a5568;
+}
+body{
+  font-family:'JetBrains Mono',monospace;
+  background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── Header ── */
+.header{
+  display:flex;align-items:center;gap:16px;
+  padding:0 20px;height:46px;flex-shrink:0;
+  border-bottom:1px solid var(--border);background:var(--panel);
+}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--accent);letter-spacing:-.3px}
+.logo span{color:var(--text);font-weight:400}
+.hdivider{width:1px;height:18px;background:var(--border)}
+.header-sub{font-size:11px;color:var(--muted)}
+.status-bar{display:flex;gap:14px;margin-left:auto;align-items:center;font-size:11px;color:var(--muted)}
+.status-item{display:flex;align-items:center;gap:5px}
+.status-val{color:var(--accent);font-weight:500}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.loading{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:blink .8s infinite}
+.dot.err{background:var(--red);box-shadow:0 0 6px var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── Root layout ── */
+.workspace{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ── LEFT: Code Panel ── */
+.code-panel{
+  width:420px;min-width:280px;max-width:640px;
+  display:flex;flex-direction:column;
+  background:var(--panel);border-right:1px solid var(--border);
+  flex-shrink:0;overflow:hidden;
+}
+
+/* Tabs */
+.tabs{
+  display:flex;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
+}
+.tab{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 16px;font-size:10.5px;
+  color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:all .15s;user-select:none;white-space:nowrap;
+  letter-spacing:.03em;flex:0 0 auto;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab svg{opacity:.7}
+.tab.active svg{opacity:1}
+
+/* Pane */
+.pane{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0}
+.pane[hidden]{display:none!important}
+
+/* Pane header bar */
+.pane-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  font-size:9.5px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;
+}
+.pill{
+  background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.35);
+  color:#a78bfa;border-radius:3px;padding:1px 7px;font-size:8.5px;letter-spacing:.05em;
+}
+.pill-cyan{
+  background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);
+  color:var(--accent);border-radius:3px;padding:1px 7px;font-size:8.5px;
+}
+
+/* Model preset chips row */
+.model-chips-row{
+  display:flex;flex-wrap:wrap;gap:5px;
+  padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.model-desc{
+  padding:7px 12px;font-size:10px;color:var(--muted);
+  border-bottom:1px solid var(--border);line-height:1.55;flex-shrink:0;
+  min-height:36px;
+}
+.world-random-wrap{
+  display:none;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.01);
+}
+.world-random-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px 10px;
+  align-items:end;
+}
+.world-random-grid .field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.world-random-grid .field label{
+  font-size:9px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.world-random-actions{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.world-random-note{
+  font-size:9px;
+  color:var(--muted);
+}
+
+/* Code editor area */
+.editor-wrap{flex:1;display:flex;overflow:hidden;position:relative;min-height:0}
+.line-nums{
+  width:38px;background:#0a1120;border-right:1px solid #1f2b42;
+  padding-top:12px;overflow:hidden;flex-shrink:0;user-select:none;
+}
+.line-nums div{height:20px;line-height:20px;text-align:right;padding-right:8px;font-size:11px;color:#344869}
+textarea.editor{
+  flex:1;
+  background:linear-gradient(180deg, rgba(40,58,92,.18), rgba(20,30,50,.18)), #0b1220;
+  color:#d9e4ff;
+  caret-color:#7aa2ff;
+  border:none;outline:none;resize:none;
+  font-family:'JetBrains Mono',monospace;font-size:13px;line-height:20px;
+  letter-spacing:.01em;
+  font-feature-settings:"calt" 1, "liga" 1;
+  padding:12px;tab-size:4;overflow:auto;white-space:pre;
+}
+textarea.editor::selection{background:rgba(122,162,255,.24)}
+
+/* CodeMirror layer (enabled at runtime by body.cm-enabled) */
+body.cm-enabled .line-nums{
+  width:0;
+  padding-top:0;
+  border-right:none;
+  overflow:hidden;
+}
+body.cm-enabled .line-nums div{display:none}
+body.cm-enabled .editor-wrap .CodeMirror{
+  flex:1;
+  height:100%;
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px;
+  line-height:20px;
+  letter-spacing:.01em;
+  border:none;
+  background:#0b1220;
+}
+body.cm-enabled .editor-wrap .CodeMirror.cm-s-material-darker{
+  background:linear-gradient(180deg, rgba(40,58,92,.18), rgba(20,30,50,.18)), #0b1220;
+  color:#d9e4ff;
+}
+body.cm-enabled .editor-wrap .CodeMirror-gutters{
+  background:#0a1120;
+  border-right:1px solid #1f2b42;
+}
+body.cm-enabled .editor-wrap .CodeMirror-linenumber{color:#344869}
+body.cm-enabled .editor-wrap .CodeMirror-cursor{border-left:1px solid #7aa2ff}
+body.cm-enabled .editor-wrap .CodeMirror-selected{background:rgba(122,162,255,.24) !important}
+body.cm-enabled .editor-wrap .CodeMirror-activeline-background{background:rgba(122,162,255,.08)}
+body.cm-enabled .editor-wrap .CodeMirror-matchingbracket{
+  color:#f8fafc !important;
+  background:rgba(122,162,255,.22);
+  border-bottom:1px solid rgba(122,162,255,.5);
+}
+body.cm-enabled .editor-wrap .CodeMirror.cm-disabled{opacity:.78}
+
+/* Python token colors */
+body.cm-enabled .cm-s-material-darker .cm-keyword{color:#c792ea}
+body.cm-enabled .cm-s-material-darker .cm-def{color:#82aaff}
+body.cm-enabled .cm-s-material-darker .cm-variable{color:#d6deeb}
+body.cm-enabled .cm-s-material-darker .cm-variable-2{color:#f78c6c}
+body.cm-enabled .cm-s-material-darker .cm-variable-3{color:#ffcb6b}
+body.cm-enabled .cm-s-material-darker .cm-property{color:#80cbc4}
+body.cm-enabled .cm-s-material-darker .cm-number{color:#f78c6c}
+body.cm-enabled .cm-s-material-darker .cm-string{color:#c3e88d}
+body.cm-enabled .cm-s-material-darker .cm-comment{color:#637777}
+body.cm-enabled .cm-s-material-darker .cm-operator{color:#89ddff}
+body.cm-enabled .cm-s-material-darker .cm-builtin{color:#ffcb6b}
+
+/* Error bar */
+.error-bar{
+  padding:7px 12px;background:rgba(239,68,68,.07);
+  border-top:1px solid rgba(239,68,68,.22);
+  color:var(--red);font-size:11px;
+  white-space:pre-wrap;word-break:break-all;
+  max-height:80px;overflow-y:auto;flex-shrink:0;
+}
+
+/* Action bar */
+.action-bar{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 12px;flex-shrink:0;
+  border-top:1px solid var(--border);background:var(--panel);
+}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 14px;border-radius:5px;border:none;
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  cursor:pointer;font-weight:600;transition:all .15s;
+}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn-cyan{background:var(--accent);color:#000}
+.btn-cyan:hover:not(:disabled){background:#2eeeff;transform:translateY(-1px)}
+.btn-violet{background:#7c3aed;color:#fff}
+.btn-violet:hover:not(:disabled){background:#8b5cf6;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover:not(:disabled){color:var(--text);border-color:var(--muted)}
+.kbd-hint{font-size:9.5px;color:var(--muted);margin-left:auto}
+.kbd{background:#0a0c10;border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:9px}
+
+/* Pyodide loading overlay */
+#loadOverlay{
+  position:absolute;inset:0;background:rgba(10,12,16,.96);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:50;gap:12px;
+}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadTxt{color:var(--text);font-size:12px}
+.load-sub{font-size:10px;color:var(--muted);opacity:.6}
+
+/* ── Splitter ── */
+.splitter{
+  width:5px;flex-shrink:0;background:var(--border);
+  cursor:col-resize;transition:background .2s;position:relative;
+}
+.splitter:hover,.splitter.dragging{background:var(--accent2)}
+.splitter::after{
+  content:'';position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:1px;height:32px;background:rgba(255,255,255,.08);border-radius:1px;
+}
+
+/* ── RIGHT: Viz Panel ── */
+.viz-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative}
+
+/* Canvas area */
+.canvas-wrap{flex:1;position:relative;overflow:hidden;min-height:0}
+canvas#sim{width:100%;height:100%;display:block}
+
+/* ── HUD (top-right of canvas) ── */
+.hud{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:7px;pointer-events:none;z-index:5}
+.hud-card{
+  background:rgba(10,12,16,.9);border:1px solid var(--border);
+  border-radius:7px;padding:9px 13px;backdrop-filter:blur(10px);min-width:148px;
+}
+.hud-lbl{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.hud-val{font-family:'Syne',sans-serif;font-size:21px;font-weight:700;color:var(--accent);line-height:1}
+.hud-unit{font-size:9.5px;color:var(--muted);margin-left:2px;font-family:'JetBrains Mono',monospace;font-weight:400}
+.bar-wrap{margin-top:5px;background:#1a1f2e;border-radius:2px;height:3px}
+.bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .08s}
+.sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:5px}
+.s-lbl{font-size:8.5px;color:var(--muted)}
+.s-val{font-size:11.5px;color:var(--text)}
+/* Model chip in HUD — pointer-events:all to allow clicks */
+.hud-card.interactive{pointer-events:all}
+
+/* Canvas watermark */
+.viz-watermark{
+  position:absolute;
+  right:14px;
+  bottom:10px;
+  z-index:6;
+  pointer-events:none;
+  font-family:'Syne',sans-serif;
+  font-weight:800;
+  letter-spacing:.06em;
+  font-size:14px;
+  color:rgba(226,232,240,.18);
+  text-transform:lowercase;
+  user-select:none;
+}
+
+/* ── World Settings Drawer (slides in from left of canvas) ── */
+.drawer{
+  position:absolute;top:0;left:0;bottom:0;width:258px;
+  background:rgba(8,10,14,.97);border-right:1px solid var(--border);
+  z-index:20;display:flex;flex-direction:column;
+  transform:translateX(-100%);
+  transition:transform .2s ease;
+}
+.drawer.open{transform:translateX(0)}
+.drawer-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 12px;border-bottom:1px solid var(--border);
+}
+.drawer-title{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);font-size:13px}
+.drawer-close{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:6px;padding:6px 9px;cursor:pointer;font-size:11px;
+}
+.drawer-close:hover{color:var(--text);border-color:var(--muted)}
+.drawer-body{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.grp{border:1px solid var(--border);border-radius:8px;padding:10px;background:rgba(255,255,255,.02)}
+.grp h4{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:7px 0}
+.row-actions{display:flex;align-items:center;gap:6px}
+label{font-size:10px;color:var(--muted)}
+input[type=range]{width:120px}
+.num-input{
+  width:92px;
+  background:#0b0f18;
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text);
+  padding:4px 7px;
+  font-size:10px;
+  font-family:'JetBrains Mono',monospace;
+}
+.num-input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(0,229,255,.25);
+}
+.small{font-size:10px;color:var(--text)}
+.toggle{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  padding:5px 10px;border-radius:999px;border:1px solid var(--border);
+  font-size:10px;color:var(--muted);cursor:pointer;user-select:none;
+}
+.chip:hover{color:var(--text)}
+.chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.06)}
+.zoom-controls{display:flex;align-items:center;gap:6px}
+.zoom-controls input[type=range]{width:84px}
+.zoom-btn{
+  width:24px;height:24px;padding:0;border:1px solid var(--border);
+  background:transparent;color:var(--text);border-radius:6px;
+  font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1;cursor:pointer;
+}
+.zoom-btn:hover{border-color:var(--muted)}
+/* Canvas top-left controls */
+.sim-controls{
+  position:absolute;top:12px;left:12px;z-index:21;
+  display:flex;align-items:center;gap:8px;
+}
+.gear{
+  background:rgba(10,12,16,.85);border:1px solid var(--border);
+  color:var(--text);border-radius:9px;padding:8px 10px;
+  cursor:pointer;display:flex;align-items:center;gap:7px;
+  backdrop-filter:blur(10px);
+}
+.gear:hover{border-color:var(--muted)}
+.gear span{font-size:10px;color:var(--muted)}
+/* Console below canvas */
+.console{
+  height:160px;flex-shrink:0;
+  background:#080a0e;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.console-head{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 12px;border-bottom:1px solid var(--border);
+  font-size:10px;color:var(--muted);
+}
+.console-clear{
+  margin-left:8px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted);
+  border-radius:6px;
+  padding:4px 8px;
+  font-size:10px;
+  cursor:pointer;
+}
+.console-clear:hover{color:var(--text);border-color:var(--muted)}
+.console-log{
+  flex:1;overflow:auto;padding:10px 12px;
+  font-size:11px;line-height:1.55;
+}
+.logline{margin-bottom:6px;white-space:pre-wrap;word-break:break-word}
+.logline .tag{display:inline-block;min-width:44px;font-weight:700;color:var(--muted)}
+.logline.ok .tag{color:var(--green)}
+.logline.err .tag{color:var(--red)}
+.logline.info .tag{color:var(--accent)}
+/* Minor */
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+</style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="logo">SteerPy 1.0 <span>sim</span></div>
+    <div class="hdivider"></div>
+    <div class="header-sub">World playground</div>
+
+    <div class="status-bar">
+      <div class="status-item"><span id="pyDot" class="dot loading"></span><span>Pyodide</span> <span class="status-val" id="pyStatus">Loading…</span></div>
+      <div class="status-item"><span>FPS</span> <span class="status-val" id="fpsEl">0</span></div>
+      <div class="status-item"><span>Frame</span> <span class="status-val" id="frameEl">0</span></div>
+      <div class="status-item"><span>Time</span> <span class="status-val" id="timeEl">0.0s</span></div>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <!-- LEFT PANEL -->
+    <div class="code-panel" id="codePanel">
+      <div class="tabs">
+        <div class="tab active" data-pane="paneUpdate">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M8 17l-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          simulate_one_step.py
+        </div>
+        <div class="tab" data-pane="panePlanner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 7h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 7h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="2" stroke="currentColor" stroke-width="2"/><path d="M3 17h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 17h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="17" r="2" stroke="currentColor" stroke-width="2"/></svg>
+          planner.py
+        </div>
+        <div class="tab" data-pane="paneController">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 12h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 7l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          controller.py
+        </div>
+        <div class="tab" data-pane="paneModel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          car_models.py
+        </div>
+        <div class="tab" data-pane="paneCfg">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 7.2l2.8 2.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 14l2.8 2.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 16.8L7 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 10l2.8-2.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+          car_config.py
+        </div>
+        <div class="tab" data-pane="paneWorld">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21s8-4 8-10a8 8 0 1 0-16 0c0 6 8 10 8 10Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="11" r="3" stroke="currentColor" stroke-width="2"/></svg>
+          world_config.py
+        </div>
+      </div>
+
+      <!-- update -->
+      <div class="pane" id="paneUpdate">
+        <div class="pane-bar">
+          <span class="pill-cyan">LIVE</span>
+          <span>Update controller logic (meters)</span>
+        </div>
+
+        <div class="editor-wrap">
+          <div class="line-nums" id="lnUpdate"></div>
+          <textarea class="editor" id="editor" spellcheck="false" disabled></textarea>
+          <div id="loadOverlay">
+            <div class="spinner"></div>
+            <div id="loadTxt">Loading…</div>
+            <div class="load-sub">Pyodide runtime + simulator bindings</div>
+          </div>
+        </div>
+
+        <div class="error-bar" id="errBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-cyan" id="btnRun" disabled>▶ Run</button>
+          <button class="btn btn-ghost" id="btnReset" disabled>↺ Reset</button>
+          <button class="btn btn-ghost" id="btnImportUpdate" disabled>📂 Import</button>
+          <button class="btn btn-ghost" id="btnExportUpdate" disabled>💾 Export</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+
+      <!-- planner -->
+      <div class="pane" id="panePlanner" hidden>
+        <div class="pane-bar">
+          <span class="pill-cyan">PLANNER</span>
+          <span>Path generation logic (meters)</span>
+        </div>
+
+        <div class="editor-wrap">
+          <div class="line-nums" id="lnPlanner"></div>
+          <textarea class="editor" id="plannerEditor" spellcheck="false" disabled></textarea>
+        </div>
+
+        <div class="error-bar" id="plannerErrBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-cyan" id="btnRunPlanner" disabled>▶ Run</button>
+          <button class="btn btn-ghost" id="btnResetPlanner" disabled>↺ Reset</button>
+          <button class="btn btn-ghost" id="btnImportPlanner" disabled>📂 Import</button>
+          <button class="btn btn-ghost" id="btnExportPlanner" disabled>💾 Export</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+
+      <!-- controller -->
+      <div class="pane" id="paneController" hidden>
+        <div class="pane-bar">
+          <span class="pill-cyan">CONTROLLER</span>
+          <span>Steering/throttle control logic (meters)</span>
+        </div>
+
+        <div class="editor-wrap">
+          <div class="line-nums" id="lnController"></div>
+          <textarea class="editor" id="controllerEditor" spellcheck="false" disabled></textarea>
+        </div>
+
+        <div class="error-bar" id="controllerErrBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-cyan" id="btnRunController" disabled>▶ Run</button>
+          <button class="btn btn-ghost" id="btnResetController" disabled>↺ Reset</button>
+          <button class="btn btn-ghost" id="btnImportController" disabled>📂 Import</button>
+          <button class="btn btn-ghost" id="btnExportController" disabled>💾 Export</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+
+      <!-- car_models -->
+      <div class="pane" id="paneModel" hidden>
+        <div class="pane-bar">
+          <span class="pill">PHYSICS</span>
+          <span>Edit and apply per-model step(state, dt) dynamics</span>
+        </div>
+
+        <div class="model-chips-row" id="modelChipsRow"></div>
+        <div class="model-desc" id="modelDesc"></div>
+
+        <div class="editor-wrap">
+          <div class="line-nums" id="lnModel"></div>
+          <textarea class="editor" id="modelEditor" spellcheck="false" disabled></textarea>
+        </div>
+
+        <div class="error-bar" id="modelErrBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-violet" id="btnRunModel" disabled>⚙ Apply Model</button>
+          <button class="btn btn-ghost" id="btnResetModel">↺ Reset Model</button>
+          <button class="btn btn-ghost" id="btnImportModel" disabled>📂 Import</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+
+      <!-- car_config -->
+      <div class="pane" id="paneCfg" hidden>
+        <div class="pane-bar">
+          <span class="pill" style="color:#fde68a;border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.12)">CONFIG</span>
+          <span>Vehicle parameter limits shared with car_models.py</span>
+        </div>
+
+        <div class="model-desc" id="cfgDesc">Define car_config dict. Values are in meters / m/s / m/s² / deg / deg/s.</div>
+
+        <div class="editor-wrap">
+          <div class="line-nums" id="lnCfg"></div>
+          <textarea class="editor" id="cfgEditor" spellcheck="false" disabled></textarea>
+        </div>
+
+        <div class="error-bar" id="cfgErrBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-ghost" id="btnApplyCfg" disabled>⚙ Apply Config</button>
+          <button class="btn btn-ghost" id="btnImportCfg" disabled>📂 Import</button>
+          <button class="btn btn-ghost" id="btnExportCfg" disabled>💾 Export</button>
+          <button class="btn btn-ghost" id="btnResetCfg">↺ Pull From UI</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Alt</span> <span class="kbd">Shift</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+
+      <!-- world_config -->
+      <div class="pane" id="paneWorld" hidden>
+        <div class="pane-bar">
+          <span class="pill" style="color:#86efac;border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.12)">WORLD</span>
+          <span>Waypoints + obstacles (meters)</span>
+        </div>
+
+        <div class="model-chips-row" id="worldTabsRow">
+          <div class="chip active" data-worldtab="code" onclick="selectWorldTab('code')">Code</div>
+          <div class="chip" data-worldtab="random" onclick="selectWorldTab('random')">Random</div>
+        </div>
+        <div class="model-desc" id="worldDesc"></div>
+
+        <div class="world-random-wrap" id="worldRandomWrap">
+          <div class="world-random-grid">
+            <div class="field">
+              <label>Obstacles Min</label>
+              <input class="num-input" type="number" id="randObsMin" min="0" max="60" step="1" value="10" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Obstacles Max</label>
+              <input class="num-input" type="number" id="randObsMax" min="0" max="60" step="1" value="10" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label>Obs Size Min (m)</label>
+              <input class="num-input" type="number" id="randObsSizeMin" min="1" max="20" step="0.2" value="0.5" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label>Obs Size Max (m)</label>
+              <input class="num-input" type="number" id="randObsSizeMax" min="1" max="20" step="0.2" value="1.0" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label>Road Length Min (m)</label>
+              <input class="num-input" type="number" id="randRoadLenMin" min="20" max="400" step="1" value="100" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label>Road Length Max (m)</label>
+              <input class="num-input" type="number" id="randRoadLenMax" min="20" max="400" step="1" value="150" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label>Road Width Min (m)</label>
+              <input class="num-input" type="number" id="randRoadWidthMin" min="4" max="30" step="0.2" value="7.0" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label>Road Width Max (m)</label>
+              <input class="num-input" type="number" id="randRoadWidthMax" min="4" max="30" step="0.2" value="12.0" inputmode="decimal">
+            </div>
+          </div>
+          <div class="world-random-actions">
+            <button class="btn btn-ghost" id="btnGenerateRandomWorld" disabled>🎲 Generate Random World</button>
+            <span class="world-random-note">Writes world_config.py and applies immediately.</span>
+          </div>
+        </div>
+
+        <div class="editor-wrap" id="worldEditorWrap">
+          <div class="line-nums" id="lnWorld"></div>
+          <textarea class="editor" id="worldEditor" spellcheck="false" disabled></textarea>
+        </div>
+
+        <div class="error-bar" id="worldErrorBar" style="display:none"></div>
+
+        <div class="action-bar">
+          <button class="btn btn-ghost" id="btnApplyWorld" disabled>🗺 Apply World</button>
+          <button class="btn btn-ghost" id="btnImportWorld" disabled>📂 Import</button>
+          <button class="btn btn-ghost" id="btnExportWorld" disabled>💾 Export</button>
+          <button class="btn btn-ghost" id="btnResetWorld">↺ Reset World</button>
+          <div class="kbd-hint">Shortcut: <span class="kbd">Ctrl</span> <span class="kbd">Alt</span> <span class="kbd">Enter</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="splitter" id="splitter"></div>
+
+    <!-- RIGHT PANEL -->
+    <div class="viz-panel">
+      <div class="canvas-wrap">
+        <div class="sim-controls">
+          <button class="gear" id="btnGear" title="World settings">
+            ⚙ <span>World</span>
+          </button>
+          <button class="gear" id="btnPauseFloat" title="Pause or resume simulation">
+            ⏸ <span>Pause</span>
+          </button>
+          <button class="gear" id="btnStepFloat" title="Advance simulation by one step">
+            ⏭ <span>1 Step</span>
+          </button>
+          <button class="gear" id="btnRestartScenario" title="Restart scenario from world_config.py" disabled>
+            ↻ <span>Restart</span>
+          </button>
+          <button class="gear" id="btnControlMode" title="Switch control mode">
+            🤖 <span>Mode: Auto</span>
+          </button>
+          <button class="gear" id="btnViewMode" title="Toggle camera view mode">
+            🧭 <span>View: Free</span>
+          </button>
+        </div>
+
+        <div class="drawer" id="drawer">
+          <div class="drawer-head">
+            <div class="drawer-title">World Settings</div>
+            <button class="drawer-close" id="btnDrawerClose">Close</button>
+          </div>
+          <div class="drawer-body">
+            <div class="grp">
+              <h4>Simulation</h4>
+              <div class="row">
+                <label>Pause</label>
+                <div class="row-actions">
+                  <button class="btn btn-ghost" id="btnPause" style="padding:6px 10px;">⏸ Pause</button>
+                  <button class="btn btn-ghost" id="btnStep" style="padding:6px 10px;">⏭ 1 Step</button>
+                </div>
+              </div>
+              <div class="row">
+                <label>Time scale</label>
+                <input type="range" id="timeScale" min="0.2" max="2.5" value="1" step="0.1">
+                <div class="small"><span id="timeScaleVal">1.0</span>x</div>
+              </div>
+            </div>
+
+            <div class="grp">
+              <h4>Physics</h4>
+              <div class="row">
+                <label>Friction</label>
+                <input type="range" id="friction" min="0" max="0.8" value="0.2" step="0.01">
+                <div class="small" id="frictionVal">0.20</div>
+              </div>
+              <div class="row">
+                <label>Accel (m/s²)</label>
+                <input type="range" id="accel" min="0" max="12" value="6" step="0.2">
+                <div class="small" id="accelVal">6.0</div>
+              </div>
+              <div class="row">
+                <label>Brake (m/s²)</label>
+                <input type="range" id="brake" min="2" max="16" value="10" step="0.2">
+                <div class="small" id="brakeVal">10.0</div>
+              </div>
+            </div>
+
+            <div class="grp">
+              <h4>Vehicle</h4>
+              <div class="row">
+                <label>Length (m)</label>
+                <input type="range" id="vehLength" min="2.8" max="8.0" value="4.5" step="0.1">
+                <div class="small" id="vehLengthVal">4.5</div>
+              </div>
+              <div class="row">
+                <label>Width (m)</label>
+                <input type="range" id="vehWidth" min="1.4" max="3.2" value="2.0" step="0.05">
+                <div class="small" id="vehWidthVal">2.00</div>
+              </div>
+              <div class="row">
+                <label>Wheelbase (m)</label>
+                <input type="range" id="vehWheelbase" min="1.2" max="4.1" value="2.8" step="0.05">
+                <div class="small" id="vehWheelbaseVal">2.80</div>
+              </div>
+              <div class="row">
+                <label>Min speed (m/s)</label>
+                <input class="num-input" type="number" id="cfgMinSpeed" min="-20" max="20" value="-12" step="0.5" inputmode="decimal">
+                <div class="small" id="cfgMinSpeedVal">-12.0</div>
+              </div>
+              <div class="row">
+                <label>Max speed (m/s)</label>
+                <input class="num-input" type="number" id="cfgMaxSpeed" min="1" max="60" value="36" step="0.5" inputmode="decimal">
+                <div class="small" id="cfgMaxSpeedVal">36.0</div>
+              </div>
+              <div class="row">
+                <label>Min accel (m/s²)</label>
+                <input class="num-input" type="number" id="cfgMinAccel" min="0" max="12" value="0" step="0.2" inputmode="decimal">
+                <div class="small" id="cfgMinAccelVal">0.0</div>
+              </div>
+              <div class="row">
+                <label>Max accel (m/s²)</label>
+                <input class="num-input" type="number" id="cfgMaxAccel" min="0.5" max="20" value="12" step="0.2" inputmode="decimal">
+                <div class="small" id="cfgMaxAccelVal">12.0</div>
+              </div>
+              <div class="row">
+                <label>Min steer ang (deg)</label>
+                <input class="num-input" type="number" id="cfgMinSteerAng" min="-60" max="0" value="-40" step="1" inputmode="numeric">
+                <div class="small" id="cfgMinSteerAngVal">-40</div>
+              </div>
+              <div class="row">
+                <label>Max steer ang (deg)</label>
+                <input class="num-input" type="number" id="cfgMaxSteerAng" min="0" max="60" value="40" step="1" inputmode="numeric">
+                <div class="small" id="cfgMaxSteerAngVal">40</div>
+              </div>
+              <div class="row">
+                <label>Min steer spd (deg/s)</label>
+                <input class="num-input" type="number" id="cfgMinSteerSpd" min="-500" max="-1" value="-220" step="1" inputmode="numeric">
+                <div class="small" id="cfgMinSteerSpdVal">-220</div>
+              </div>
+              <div class="row">
+                <label>Max steer spd (deg/s)</label>
+                <input class="num-input" type="number" id="cfgMaxSteerSpd" min="1" max="500" value="220" step="1" inputmode="numeric">
+                <div class="small" id="cfgMaxSteerSpdVal">220</div>
+              </div>
+            </div>
+
+            <div class="grp">
+              <h4>View</h4>
+              <div class="row">
+                <label>Grid</label>
+                <div class="toggle">
+                  <div class="chip active" id="chipGrid">On</div>
+                </div>
+              </div>
+              <div class="row">
+                <label>Sensors</label>
+                <div class="toggle">
+                  <div class="chip active" id="chipSensors">On</div>
+                </div>
+              </div>
+              <div class="row">
+                <label>LiDAR Range (m)</label>
+                <input type="range" id="lidarRange" min="6" max="60" value="22" step="1">
+                <div class="small" id="lidarRangeVal">22</div>
+              </div>
+              <div class="row">
+                <label>LiDAR Beams</label>
+                <input type="range" id="lidarBeams" min="12" max="180" value="72" step="1">
+                <div class="small" id="lidarBeamsVal">72</div>
+              </div>
+              <div class="row">
+                <label>Trail</label>
+                <div class="toggle">
+                  <div class="chip active" id="chipTrail">On</div>
+                </div>
+              </div>
+              <div class="row">
+                <label>Debug Draw</label>
+                <div class="toggle">
+                  <div class="chip active" id="chipDebugDraw">On</div>
+                </div>
+              </div>
+              <div class="row">
+                <label>Zoom</label>
+                <div class="zoom-controls">
+                  <button class="zoom-btn" id="btnZoomOut" aria-label="Zoom out">-</button>
+                  <input type="range" id="zoomScale" min="0.5" max="2.5" value="1" step="0.1">
+                  <button class="zoom-btn" id="btnZoomIn" aria-label="Zoom in">+</button>
+                  <div class="small"><span id="zoomScaleVal">1.0</span>x</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grp">
+              <h4>Notes</h4>
+              <div class="small" style="line-height:1.55;color:var(--muted)">
+                World units are meters (x right, y up). Rendering uses <b>PX_PER_M = 10</b>.
+                <br><br>
+                Spacebar toggles Pause/Resume.
+                <br>
+                Manual mode: Arrow keys drive the car.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <canvas id="sim"></canvas>
+        <div class="viz-watermark">steerpy</div>
+
+        <div class="hud">
+          <div class="hud-card">
+            <div class="hud-lbl">Speed</div>
+            <div class="hud-val" id="hSpd">0<span class="hud-unit">m/s</span></div>
+            <div class="bar-wrap"><div class="bar-fill" id="spdBar" style="width:0%"></div></div>
+          </div>
+          <div class="hud-card">
+            <div class="hud-lbl">Heading</div>
+            <div class="hud-val" id="hAng">0.0<span class="hud-unit">deg</span></div>
+          </div>
+          <div class="hud-card">
+            <div class="hud-lbl">Steer</div>
+            <div class="hud-val" id="hSteer">0.0<span class="hud-unit">deg</span></div>
+          </div>
+          <div class="hud-card">
+            <div class="hud-lbl">Sensors</div>
+            <div class="sensor-grid">
+              <div class="s-lbl">Front</div><div class="s-val" id="sF">—</div>
+              <div class="s-lbl">Front-L</div><div class="s-val" id="sFL">—</div>
+              <div class="s-lbl">Front-R</div><div class="s-val" id="sFR">—</div>
+              <div class="s-lbl">Left</div><div class="s-val" id="sL">—</div>
+              <div class="s-lbl">Right</div><div class="s-val" id="sR">—</div>
+              <div class="s-lbl">Rear</div><div class="s-val" id="sB">—</div>
+            </div>
+          </div>
+          <div class="hud-card interactive">
+            <div class="hud-lbl">Model</div>
+            <div class="s-val" id="hudModel">kinematic</div>
+          </div>
+          <div class="hud-card">
+            <div class="hud-lbl">Mouse (World)</div>
+            <div class="sensor-grid">
+              <div class="s-lbl">X</div><div class="s-val" id="hMouseX">—</div>
+              <div class="s-lbl">Y</div><div class="s-val" id="hMouseY">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="console">
+        <div class="console-head">
+          <span>Console</span>
+          <span style="margin-left:auto;color:var(--muted)">Logs from car.log()</span>
+          <button class="console-clear" id="btnClearConsole" title="Clear console log">Clear</button>
+        </div>
+        <div class="console-log" id="console"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const CAR_CONFIG_DEFAULTS = {
+  width: 2.0,
+  length: 4.5,
+  wheelbase: 2.8,
+  min_speed: -12.0,
+  max_speed: 36.0,
+  min_accel: 0.0,
+  max_accel: 12.0,
+  min_steering_angle_deg: -40.0,
+  max_steering_angle_deg: 40.0,
+  min_steering_speed_deg_s: -220.0,
+  max_steering_speed_deg_s: 220.0,
+};
+const carModelConfig = { ...CAR_CONFIG_DEFAULTS };
+
+// ───────────────────────────────────────────────────────────────
+//  Python source paths
+// ───────────────────────────────────────────────────────────────
+const DEFAULT_PLANNER_CODE = ""; // loaded from src/modules/planner/planner.py
+const DEFAULT_CONTROLLER_CODE = ""; // loaded from src/modules/controller/controller.py
+const DEFAULT_CODE = ""; // loaded from src/simulation_apis/simulate_one_step.py
+const PY_SOURCE_PATHS = {
+  planner: 'src/modules/planner/planner.py',
+  controller: 'src/modules/controller/controller.py',
+  simulate_one_step: 'src/simulation_apis/simulate_one_step.py',
+  world: 'src/sample_config/world_config.py',
+  car_config: 'src/sample_config/car_config.py',
+  model_kinematic: 'src/car_models/kinematic.py',
+  model_bicycle: 'src/car_models/bicycle.py',
+  model_ackermann: 'src/car_models/ackermann.py',
+  model_drift: 'src/car_models/drift.py',
+  model_custom: 'src/car_models/custom.py',
+  runtime_streams: 'src/runtime/streams.py',
+  sim_type_car: 'src/core/car.py',
+  sim_type_sensors: 'src/core/sensors.py',
+  sim_type_world_model: 'src/core/world_model.py',
+  runtime_bindings: 'src/runtime/bindings.py',
+  entry_adapter: 'src/runtime/entrypoint_adapter.py',
+  cfg_loader: 'src/runtime/car_config_loader.py',
+  model_loader: 'src/runtime/model_loader.py',
+  random_world_generator: 'src/simulation_apis/random_world_generator.py',
+};
+const pySourceCache = Object.create(null);
+let pySourceLoadPromise = null;
+
+async function loadPythonSources(){
+  if(pySourceLoadPromise) return pySourceLoadPromise;
+  pySourceLoadPromise = (async ()=>{
+    const entries = Object.entries(PY_SOURCE_PATHS);
+    await Promise.all(entries.map(async ([key, path])=>{
+      const res = await fetch(path, { cache: 'no-cache' });
+      if(!res.ok) throw new Error(`Failed to load ${path}: ${res.status} ${res.statusText}`);
+      pySourceCache[key] = await res.text();
+    }));
+  })();
+  return pySourceLoadPromise;
+}
+function getPythonSource(key, fallback=''){
+  const txt = pySourceCache[key];
+  return (typeof txt === 'string' && txt.trim()) ? txt : fallback;
+}
+const FALLBACK_ENTRY_ADAPTER = `
+import inspect
+import types
+
+_entry_fn_name = "simulate_one_step"
+_update_obj = globals().get(_entry_fn_name)
+if _update_obj is None or not callable(_update_obj):
+    raise Exception("No simulate_one_step(...) found.")
+
+_params = [
+    p for p in inspect.signature(_update_obj).parameters.values()
+    if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+]
+_update_arity = len(_params)
+
+if _update_arity in (2, 3):
+    def _update_adapter(car, sensors, world_model):
+        if isinstance(world_model, dict):
+            world_model = types.SimpleNamespace(**world_model)
+        if _update_arity == 2:
+            return _update_obj(car, world_model)
+        return _update_obj(car, sensors, world_model)
+else:
+    raise Exception("simulate_one_step signature must be simulate_one_step(car, world_model) or simulate_one_step(car, sensors, world_model).")
+`;
+
+function fmtCfg(v){
+  const n = +v;
+  if(!Number.isFinite(n)) return '0.0';
+  return Number(n.toFixed(4)).toString();
+}
+function buildCarConfigCode(cfg = carModelConfig){
+  return `# car_config.py
+# Shared vehicle/model limits. Units:
+#   length/width/wheelbase: meters
+#   speed: m/s
+#   accel: m/s^2
+#   steering angle: degrees
+#   steering speed: deg/s
+
+car_config = {
+    "width": ${fmtCfg(cfg.width)},
+    "length": ${fmtCfg(cfg.length)},
+    "wheelbase": ${fmtCfg(cfg.wheelbase)},
+    "min_speed": ${fmtCfg(cfg.min_speed)},
+    "max_speed": ${fmtCfg(cfg.max_speed)},
+    "min_accel": ${fmtCfg(cfg.min_accel)},
+    "max_accel": ${fmtCfg(cfg.max_accel)},
+    "min_steering_angle_deg": ${fmtCfg(cfg.min_steering_angle_deg)},
+    "max_steering_angle_deg": ${fmtCfg(cfg.max_steering_angle_deg)},
+    "min_steering_speed_deg_s": ${fmtCfg(cfg.min_steering_speed_deg_s)},
+    "max_steering_speed_deg_s": ${fmtCfg(cfg.max_steering_speed_deg_s)},
+}
+`;
+}
+function parseCarConfigData(raw){
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const pick = (...keys) => {
+    for(const k of keys){
+      if(Object.prototype.hasOwnProperty.call(raw, k)) return raw[k];
+    }
+    return undefined;
+  };
+  const asNum = (v) => {
+    const n = +v;
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const out = {};
+  out.width = asNum(pick('width'));
+  out.length = asNum(pick('length'));
+  out.wheelbase = asNum(pick('wheelbase'));
+  out.min_speed = asNum(pick('min_speed', 'speed_min'));
+  out.max_speed = asNum(pick('max_speed', 'speed_max'));
+  out.min_accel = asNum(pick('min_accel', 'accel_min'));
+  out.max_accel = asNum(pick('max_accel', 'accel_max'));
+  out.min_steering_angle_deg = asNum(pick('min_steering_angle_deg', 'min_steer_angle_deg', 'steering_angle_min_deg'));
+  out.max_steering_angle_deg = asNum(pick('max_steering_angle_deg', 'max_steer_angle_deg', 'steering_angle_max_deg'));
+  out.min_steering_speed_deg_s = asNum(pick('min_steering_speed_deg_s', 'min_steer_speed_deg_s', 'steering_speed_min_deg_s'));
+  out.max_steering_speed_deg_s = asNum(pick('max_steering_speed_deg_s', 'max_steer_speed_deg_s', 'steering_speed_max_deg_s'));
+
+  return out;
+}
+function normalizeCarConfig(partial){
+  const next = { ...carModelConfig, ...partial };
+
+  next.width = Number.isFinite(next.width) ? Math.max(0.5, next.width) : carModelConfig.width;
+  next.length = Number.isFinite(next.length) ? Math.max(0.5, next.length) : carModelConfig.length;
+
+  const wbMin = 1.2;
+  const wbMax = Math.max(wbMin, next.length - 0.4);
+  if(!Number.isFinite(next.wheelbase)) next.wheelbase = carModelConfig.wheelbase;
+  next.wheelbase = clampRange(next.wheelbase, wbMin, wbMax);
+
+  if(!Number.isFinite(next.min_speed)) next.min_speed = carModelConfig.min_speed;
+  if(!Number.isFinite(next.max_speed)) next.max_speed = carModelConfig.max_speed;
+  if(next.min_speed > next.max_speed) [next.min_speed, next.max_speed] = [next.max_speed, next.min_speed];
+
+  if(!Number.isFinite(next.min_accel)) next.min_accel = carModelConfig.min_accel;
+  if(!Number.isFinite(next.max_accel)) next.max_accel = carModelConfig.max_accel;
+  if(next.min_accel > next.max_accel) [next.min_accel, next.max_accel] = [next.max_accel, next.min_accel];
+  next.min_accel = Math.max(0, next.min_accel);
+  next.max_accel = Math.max(next.min_accel, next.max_accel);
+
+  if(!Number.isFinite(next.min_steering_angle_deg)) next.min_steering_angle_deg = carModelConfig.min_steering_angle_deg;
+  if(!Number.isFinite(next.max_steering_angle_deg)) next.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
+  if(next.min_steering_angle_deg > next.max_steering_angle_deg){
+    [next.min_steering_angle_deg, next.max_steering_angle_deg] = [next.max_steering_angle_deg, next.min_steering_angle_deg];
+  }
+
+  if(!Number.isFinite(next.min_steering_speed_deg_s)) next.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
+  if(!Number.isFinite(next.max_steering_speed_deg_s)) next.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
+  if(next.min_steering_speed_deg_s > next.max_steering_speed_deg_s){
+    [next.min_steering_speed_deg_s, next.max_steering_speed_deg_s] = [next.max_steering_speed_deg_s, next.min_steering_speed_deg_s];
+  }
+  if(next.max_steering_speed_deg_s <= 0) next.max_steering_speed_deg_s = 1;
+  if(next.min_steering_speed_deg_s >= 0) next.min_steering_speed_deg_s = -1;
+
+  return next;
+}
+function applyCarConfigObject(rawCfg, sourceLabel='car_config.py', opts = {}){
+  const logApply = opts.log !== false;
+  const parsed = parseCarConfigData(rawCfg);
+  if(!parsed) throw new Error("No dict 'car_config' found.");
+  const next = normalizeCarConfig(parsed);
+  Object.assign(carModelConfig, next);
+
+  car.length = carModelConfig.length;
+  car.width = carModelConfig.width;
+  car.wheelbase = carModelConfig.wheelbase;
+  car.min_speed = carModelConfig.min_speed;
+  car.max_speed = carModelConfig.max_speed;
+  car.speed = clampRange(car.speed, car.min_speed, car.max_speed);
+  car.steer_angle = clampRange(car.steer_angle, carModelConfig.min_steering_angle_deg, carModelConfig.max_steering_angle_deg);
+
+  const accelInput = document.getElementById('accel');
+  const accelLabel = document.getElementById('accelVal');
+  if(accelInput){
+    accelInput.min = fmtCfg(carModelConfig.min_accel);
+    accelInput.max = fmtCfg(carModelConfig.max_accel);
+    car._accelForce = clampRange(car._accelForce, carModelConfig.min_accel, carModelConfig.max_accel);
+    accelInput.value = fmtCfg(car._accelForce);
+  }
+  if(accelLabel) accelLabel.textContent = car._accelForce.toFixed(1);
+
+  if(typeof syncVehicleConfigUI === 'function') syncVehicleConfigUI();
+
+  if(logApply) logCon('ok', `✓ ${sourceLabel} applied`);
+}
+
+// ───────────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ───────────────────────────────────────────────────────────────
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('2d');
+let W = 800, H = 600;
+let frameCount = 0, simTime = 0, lastTs = null, fpsBuf = [];
+let trackPts = [], obstacles = [];
+
+// ───────────────────────────────────────────────────────────────
+//  WORLD UNITS
+//  Internals are in meters (x right, y up). Rendering converts to pixels.
+// ───────────────────────────────────────────────────────────────
+const PX_PER_M = 10;            // 1 meter = 10 pixels
+const M_PER_PX = 1 / PX_PER_M;
+let viewPanX = 0;
+let viewPanY = 0;
+let viewMode = 'free'; // 'free' | 'follow'
+let controlMode = 'auto'; // 'auto' | 'manual'
+const manualKeys = { up:false, down:false, left:false, right:false };
+const WORLD_ORIGIN = () => ({ x: W/2 + viewPanX, y: H/2 + viewPanY });
+
+// ───────────────────────────────────────────────────────────────
+//  CAR STATE  (JS object, shared with Python via proxy)
+// ───────────────────────────────────────────────────────────────
+const car = {
+  // ── Position / kinematics (WORLD UNITS: meters, seconds) ───────
+  x: 0, y: 0, angle: 0,          // angle in degrees, 0=+x (right), +CCW, y up
+  speed: 0, min_speed: -12, max_speed: 36, // m/s (forward + reverse)
+
+  vx: 0, vy: 0,                  // m/s (drift model)
+  length: 4.5,                   // meters (body length)
+  width: 2.0,                    // meters (body width)
+  steer_angle: 0,                // actual front-wheel angle in degrees
+  wheelbase: 2.8,                // meters, front↔rear axle distance
+  trail: [],
+
+  // ── Control inputs (written by Python simulate_one_step(), read by physics) ─
+  // These are SETPOINTS reset to 0 each frame before simulate_one_step() runs.
+  _throttle: 0,                  // 0..1  — acceleration demand
+  _brake:    0,                  // 0..1  — braking demand
+  _steer:    0,                  // -1..1 — steering demand (-1=left, +1=right)
+
+  // ── Physics tunables (approximate real-world magnitudes) ─────────
+  _accelForce: 6.0,              // m/s^2 at full throttle
+  _brakeForce: 10.0,             // m/s^2 at full brake
+  _friction:   0.20,             // speed damping coefficient
+
+  // ── Logging ───────────────────────────────────────────────────
+  log(msg){ logCon('info', String(msg)); },
+
+  // ── Reset inputs at start of each frame ───────────────────────
+  _reset(){ this._throttle=0; this._brake=0; this._steer=0; }
+};
+
+let LIDAR_MAX_RANGE_M = 22;
+let LIDAR_BEAM_COUNT = 72;
+let lidarScan = [];
+const sensors = {
+  front:-1, rear:-1, left:-1, right:-1, front_left:-1, front_right:-1,
+  lidar:[]
+};
+const track   = { width:10, sample_distance:1.0 };
+let pyDrawLines = [];
+
+function clearPythonDrawLines(){
+  pyDrawLines = [];
+}
+function toJsIfProxy(value){
+  if(value && typeof value.toJs === 'function'){
+    return value.toJs({dict_converter: Object.fromEntries});
+  }
+  return value;
+}
+function normalizeDrawPoint(raw){
+  if(raw == null) return null;
+  if(Array.isArray(raw)){
+    const x = +raw[0];
+    const y = +raw[1];
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {x, y};
+  }
+  if(typeof raw === 'object'){
+    if(Array.isArray(raw.xy)){
+      const x = +raw.xy[0];
+      const y = +raw.xy[1];
+      if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return {x, y};
+    }
+    const x = +raw.x;
+    const y = +raw.y;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {x, y};
+  }
+  return null;
+}
+function normalizeDrawLine(raw){
+  const line = toJsIfProxy(raw);
+  if(Array.isArray(line) && line.length === 4){
+    const x1 = +line[0], y1 = +line[1], x2 = +line[2], y2 = +line[3];
+    if([x1,y1,x2,y2].every(Number.isFinite)){
+      return [{x:x1, y:y1}, {x:x2, y:y2}];
+    }
+  }
+  if(Array.isArray(line)){
+    const pts = [];
+    for(const p of line){
+      const pp = normalizeDrawPoint(toJsIfProxy(p));
+      if(pp) pts.push(pp);
+    }
+    return pts.length >= 2 ? pts : null;
+  }
+  if(line && typeof line === 'object'){
+    const x1 = +line.x1, y1 = +line.y1, x2 = +line.x2, y2 = +line.y2;
+    if([x1,y1,x2,y2].every(Number.isFinite)){
+      return [{x:x1, y:y1}, {x:x2, y:y2}];
+    }
+    const points = line.points ?? line.line;
+    if(Array.isArray(points)){
+      const pts = [];
+      for(const p of points){
+        const pp = normalizeDrawPoint(toJsIfProxy(p));
+        if(pp) pts.push(pp);
+      }
+      return pts.length >= 2 ? pts : null;
+    }
+  }
+  return null;
+}
+function queuePythonDrawLine(line, width, color){
+  try {
+    const points = normalizeDrawLine(line);
+    if(!points) return;
+
+    const wRaw = toJsIfProxy(width);
+    const wNum = +wRaw;
+    const lineWidth = Number.isFinite(wNum) ? Math.max(0.01, Math.min(3.0, wNum)) : 0.08;
+
+    const cRaw = toJsIfProxy(color);
+    const stroke = (typeof cRaw === 'string' && cRaw.trim())
+      ? cRaw.trim()
+      : 'rgba(125,249,255,.9)';
+
+    pyDrawLines.push({points, width: lineWidth, color: stroke});
+    if(pyDrawLines.length > 500) pyDrawLines.shift();
+  } catch {}
+  finally {
+    try { line?.destroy?.(); } catch {}
+    try { width?.destroy?.(); } catch {}
+    try { color?.destroy?.(); } catch {}
+  }
+}
+function queuePythonDrawPayload(payload){
+  const data = toJsIfProxy(payload);
+  if(data && typeof data === 'object'){
+    queuePythonDrawLine(data.line ?? data.points ?? data.path, data.width, data.color);
+  } else {
+    queuePythonDrawLine(null, null, null);
+  }
+  try { payload?.destroy?.(); } catch {}
+}
+
+// ───────────────────────────────────────────────────────────────
+//  CONSOLE
+// ───────────────────────────────────────────────────────────────
+const consoleEl = document.getElementById('console');
+function logCon(type, msg){
+  const div = document.createElement('div');
+  div.className = `logline ${type}`;
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = type.toUpperCase();
+  const txt = document.createElement('span');
+  txt.textContent = ' ' + msg;
+  div.appendChild(tag); div.appendChild(txt);
+  consoleEl.appendChild(div);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+function clearCon(){
+  consoleEl.innerHTML = '';
+  pyStdoutBuf = '';
+  pyStderrBuf = '';
+}
+
+let pyStdoutBuf = '';
+let pyStderrBuf = '';
+document.getElementById('btnClearConsole').addEventListener('click', clearCon);
+function pipePyStream(type, chunk){
+  const text = String(chunk ?? '').replace(/\r\n/g, '\n');
+  if(!text) return;
+
+  if(type === 'err') pyStderrBuf += text;
+  else pyStdoutBuf += text;
+
+  const buf = type === 'err' ? pyStderrBuf : pyStdoutBuf;
+  const lines = buf.split('\n');
+  const tail = lines.pop();
+
+  for(const line of lines) logCon(type, line);
+
+  if(type === 'err') pyStderrBuf = tail;
+  else pyStdoutBuf = tail;
+}
+function flushPyStreams(){
+  if(pyStdoutBuf){
+    logCon('info', pyStdoutBuf);
+    pyStdoutBuf = '';
+  }
+  if(pyStderrBuf){
+    logCon('err', pyStderrBuf);
+    pyStderrBuf = '';
+  }
+}
+
+// ───────────────────────────────────────────────────────────────
+//  RESIZE
+// ───────────────────────────────────────────────────────────────
+function resize(){
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(rect.width * devicePixelRatio);
+  canvas.height = Math.floor(rect.height * devicePixelRatio);
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  W = rect.width; H = rect.height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ───────────────────────────────────────────────────────────────
+//  UI: Tabs
+// ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const paneId = t.dataset.pane;
+    document.querySelectorAll('.pane').forEach(p=>p.hidden=true);
+    document.getElementById(paneId).hidden=false;
+  });
+});
+
+// ───────────────────────────────────────────────────────────────
+//  LINE NUMBERS
+// ───────────────────────────────────────────────────────────────
+function updateLineNums(){
+  const ta = document.getElementById('editor');
+  const ln = document.getElementById('lnUpdate');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+function updatePlannerLineNums(){
+  const ta = document.getElementById('plannerEditor');
+  const ln = document.getElementById('lnPlanner');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+function updateControllerLineNums(){
+  const ta = document.getElementById('controllerEditor');
+  const ln = document.getElementById('lnController');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+function updateModelLineNums(){
+  const ta = document.getElementById('modelEditor');
+  const ln = document.getElementById('lnModel');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+function updateCfgLineNums(){
+  const ta = document.getElementById('cfgEditor');
+  const ln = document.getElementById('lnCfg');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+function updateWorldLineNums(){
+  const ta = document.getElementById('worldEditor');
+  const ln = document.getElementById('lnWorld');
+  const n = ta.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n}, (_,i)=>`<div>${i+1}</div>`).join('');
+}
+document.getElementById('editor').addEventListener('input', updateLineNums);
+document.getElementById('plannerEditor').addEventListener('input', updatePlannerLineNums);
+document.getElementById('controllerEditor').addEventListener('input', updateControllerLineNums);
+document.getElementById('modelEditor').addEventListener('input', updateModelLineNums);
+document.getElementById('cfgEditor').addEventListener('input', updateCfgLineNums);
+document.getElementById('worldEditor').addEventListener('input', updateWorldLineNums);
+
+const PY_EDITOR_IDS = ['editor','plannerEditor','controllerEditor','modelEditor','cfgEditor','worldEditor'];
+const pyCodeEditors = Object.create(null);
+let codeMirrorReady = false;
+
+function refreshCodeEditor(id){
+  const cm = pyCodeEditors[id];
+  if(cm) cm.refresh();
+}
+function refreshAllCodeEditors(){
+  if(!codeMirrorReady) return;
+  for(const id of PY_EDITOR_IDS) refreshCodeEditor(id);
+}
+function initCodeMirrorEditors(){
+  if(codeMirrorReady) return;
+  if(typeof CodeMirror !== 'function'){
+    logCon('err', 'CodeMirror failed to load; using plain textarea editor');
+    return;
+  }
+
+  const nativeValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  const nativeDisabled = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'disabled');
+
+  for(const id of PY_EDITOR_IDS){
+    const ta = document.getElementById(id);
+    if(!ta) continue;
+
+    const cm = CodeMirror.fromTextArea(ta, {
+      mode: 'python',
+      theme: 'material-darker',
+      lineNumbers: true,
+      lineWrapping: false,
+      indentUnit: 4,
+      tabSize: 4,
+      indentWithTabs: false,
+      matchBrackets: true,
+      autoCloseBrackets: true,
+      styleActiveLine: true,
+      viewportMargin: 30,
+    });
+    cm.setOption('readOnly', ta.disabled ? 'nocursor' : false);
+    cm.getWrapperElement().classList.toggle('cm-disabled', !!ta.disabled);
+
+    cm.on('change', () => {
+      if(nativeValue?.set) nativeValue.set.call(ta, cm.getValue());
+    });
+
+    try {
+      Object.defineProperty(ta, 'value', {
+        configurable: true,
+        enumerable: true,
+        get(){ return cm.getValue(); },
+        set(v){
+          const next = String(v ?? '');
+          if(cm.getValue() !== next) cm.setValue(next);
+          if(nativeValue?.set) nativeValue.set.call(ta, next);
+        },
+      });
+    } catch {}
+
+    try {
+      Object.defineProperty(ta, 'disabled', {
+        configurable: true,
+        enumerable: true,
+        get(){
+          return nativeDisabled?.get ? nativeDisabled.get.call(ta) : false;
+        },
+        set(v){
+          const off = !!v;
+          if(nativeDisabled?.set) nativeDisabled.set.call(ta, off);
+          cm.setOption('readOnly', off ? 'nocursor' : false);
+          cm.getWrapperElement().classList.toggle('cm-disabled', off);
+        },
+      });
+    } catch {}
+
+    pyCodeEditors[id] = cm;
+  }
+
+  codeMirrorReady = true;
+  document.body.classList.add('cm-enabled');
+  requestAnimationFrame(refreshAllCodeEditors);
+}
+initCodeMirrorEditors();
+window.addEventListener('resize', ()=>requestAnimationFrame(refreshAllCodeEditors));
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>requestAnimationFrame(refreshAllCodeEditors));
+});
+
+const STORAGE_KEYS = {
+  update: 'steerpy.simulate_one_step.py',
+  planner: 'steerpy.planner.py',
+  controller: 'steerpy.controller.py',
+  model: 'steerpy.car_models.py',
+  config: 'steerpy.car_config.py',
+  world: 'steerpy.world_config.py',
+};
+function saveEditorsToStorage(){
+  try {
+    localStorage.setItem(STORAGE_KEYS.update, document.getElementById('editor').value);
+    localStorage.setItem(STORAGE_KEYS.planner, document.getElementById('plannerEditor').value);
+    localStorage.setItem(STORAGE_KEYS.controller, document.getElementById('controllerEditor').value);
+    if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
+      const txt = document.getElementById('modelEditor').value;
+      const fallback = MODEL_PRESETS[currentModelPreset] || '';
+      modelSourceByName[currentModelPreset] = (typeof txt === 'string' && txt.trim()) ? txt : fallback;
+    }
+    localStorage.setItem(STORAGE_KEYS.model, JSON.stringify(modelSourceByName));
+    const cfgTxt = document.getElementById('cfgEditor').value;
+    localStorage.setItem(STORAGE_KEYS.config, (typeof cfgTxt === 'string' && cfgTxt.trim()) ? cfgTxt : buildCarConfigCode(carModelConfig));
+    localStorage.setItem(STORAGE_KEYS.world, document.getElementById('worldEditor').value);
+  } catch(err){
+    logCon('err', 'Save failed: ' + err);
+  }
+}
+function loadEditorsFromStorage(){
+  try {
+    const savedUpdate = localStorage.getItem(STORAGE_KEYS.update);
+    const savedPlanner = localStorage.getItem(STORAGE_KEYS.planner);
+    const savedController = localStorage.getItem(STORAGE_KEYS.controller);
+    const savedModel = localStorage.getItem(STORAGE_KEYS.model);
+    const savedCfg = localStorage.getItem(STORAGE_KEYS.config);
+    const savedWorld = localStorage.getItem(STORAGE_KEYS.world);
+    if(savedUpdate != null){
+      document.getElementById('editor').value = savedUpdate;
+    }
+    if(savedPlanner != null){
+      document.getElementById('plannerEditor').value = savedPlanner;
+    }
+    if(savedController != null){
+      document.getElementById('controllerEditor').value = savedController;
+    }
+    if(savedModel != null){
+      try {
+        const parsed = JSON.parse(savedModel);
+        if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)){
+          for(const k of Object.keys(MODEL_PRESETS)){
+            if(typeof parsed[k] === 'string'){
+              const txt = parsed[k];
+              modelSourceByName[k] = txt.trim() ? txt : (MODEL_PRESETS[k] || '');
+            }
+          }
+        } else if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
+          const txt = String(savedModel);
+          modelSourceByName[currentModelPreset] = txt.trim() ? txt : (MODEL_PRESETS[currentModelPreset] || '');
+        }
+      } catch {
+        if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
+          const txt = String(savedModel);
+          modelSourceByName[currentModelPreset] = txt.trim() ? txt : (MODEL_PRESETS[currentModelPreset] || '');
+        }
+      }
+    }
+    if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
+      const txt = modelSourceByName[currentModelPreset];
+      const fallback = MODEL_PRESETS[currentModelPreset] || '';
+      const resolved = (typeof txt === 'string' && txt.trim()) ? txt : fallback;
+      modelSourceByName[currentModelPreset] = resolved;
+      document.getElementById('modelEditor').value = resolved;
+    }
+    if(savedCfg != null){
+      const txt = String(savedCfg);
+      document.getElementById('cfgEditor').value = txt.trim() ? txt : buildCarConfigCode(carModelConfig);
+    }
+    if(savedWorld != null) document.getElementById('worldEditor').value = savedWorld;
+  } catch(err){
+    logCon('err', 'Load saved code failed: ' + err);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────
+//  PYODIDE
+// ───────────────────────────────────────────────────────────────
+let pyodide = null, pyUpdateFn = null;
+let pyStepFnName = 'simulate_one_step';
+let pyCar, pySensors, pyWorldModel, pySetWorldRuntimeFn, pySetWorldScenarioFn;
+
+function setLoadTxt(s){ document.getElementById('loadTxt').textContent = s; }
+
+async function initPyodide() {
+  try {
+    setLoadTxt('Loading Python source files…');
+    await loadPythonSources();
+    applyLoadedPythonSources();
+    syncModelSourceByNameFromPresets();
+    setLoadTxt('Loading Python runtime (Pyodide)…');
+    pyodide = await loadPyodide();
+    setLoadTxt('Initializing Python wrappers…');
+
+    // Route native Python print()/stderr into the simulator console in realtime.
+    pyodide.globals.set('_cb_stdout', (m) => pipePyStream('info', m));
+    pyodide.globals.set('_cb_stderr', (m) => pipePyStream('err', m));
+    await pyodide.runPythonAsync(getPythonSource('runtime_streams', ''));
+
+    pyodide.globals.set('_cb_log', (m) => car.log(m));
+    pyodide.globals.set('_cb_draw_line', (payload) => queuePythonDrawPayload(payload));
+
+    await pyodide.runPythonAsync(getPythonSource('sim_type_car', ''));
+    await pyodide.runPythonAsync(getPythonSource('sim_type_sensors', ''));
+    await pyodide.runPythonAsync(getPythonSource('sim_type_world_model', ''));
+    await pyodide.runPythonAsync(getPythonSource('runtime_bindings', ''));
+    pyCar     = pyodide.globals.get('_car_obj');
+    pySensors = pyodide.globals.get('_sensors_obj');
+    pyWorldModel = pyodide.globals.get('_world_model_obj');
+    pySetWorldRuntimeFn = pyodide.globals.get('_set_world_runtime');
+    pySetWorldScenarioFn = pyodide.globals.get('_set_world_scenario');
+
+    document.getElementById('loadOverlay').style.display = 'none';
+    document.getElementById('editor').disabled = false;
+    document.getElementById('plannerEditor').disabled = false;
+    document.getElementById('controllerEditor').disabled = false;
+    document.getElementById('btnRun').disabled = false;
+    document.getElementById('btnRunPlanner').disabled = false;
+    document.getElementById('btnRunController').disabled = false;
+    document.getElementById('btnImportUpdate').disabled = false;
+    document.getElementById('btnImportPlanner').disabled = false;
+    document.getElementById('btnImportController').disabled = false;
+    document.getElementById('btnExportUpdate').disabled = false;
+    document.getElementById('btnExportPlanner').disabled = false;
+    document.getElementById('btnExportController').disabled = false;
+    document.getElementById('btnReset').disabled = false;
+    document.getElementById('btnResetPlanner').disabled = false;
+    document.getElementById('btnResetController').disabled = false;
+    document.getElementById('btnRestartScenario').disabled = false;
+    document.getElementById('pyDot').className   = 'dot';
+    document.getElementById('pyStatus').textContent = 'Python 3.11';
+
+    document.getElementById('editor').value = getPythonSource('simulate_one_step', DEFAULT_CODE);
+    document.getElementById('plannerEditor').value = getPythonSource('planner', DEFAULT_PLANNER_CODE);
+    document.getElementById('controllerEditor').value = getPythonSource('controller', DEFAULT_CONTROLLER_CODE);
+    updateLineNums();
+    updatePlannerLineNums();
+    updateControllerLineNums();
+
+    loadModelPreset('kinematic');
+    document.getElementById('cfgEditor').value = getPythonSource('car_config', buildCarConfigCode(carModelConfig));
+    document.getElementById('modelEditor').disabled = false;
+    document.getElementById('btnRunModel').disabled = false;
+    document.getElementById('btnImportModel').disabled = false;
+    document.getElementById('cfgEditor').disabled = false;
+    document.getElementById('btnApplyCfg').disabled = false;
+    document.getElementById('btnImportCfg').disabled = false;
+    document.getElementById('btnExportCfg').disabled = false;
+    document.getElementById('worldEditor').disabled = false;
+    document.getElementById('btnApplyWorld').disabled = false;
+    document.getElementById('btnImportWorld').disabled = false;
+    document.getElementById('btnExportWorld').disabled = false;
+    document.getElementById('btnGenerateRandomWorld').disabled = false;
+
+    loadWorldPreset('loop');
+    updateModelLineNums();
+    updateCfgLineNums();
+    updateWorldLineNums();
+    loadEditorsFromStorage();
+    updateLineNums();
+    updatePlannerLineNums();
+    updateControllerLineNums();
+    updateModelLineNums();
+    updateCfgLineNums();
+    updateWorldLineNums();
+
+    await compileCode();
+    await runModelCode();
+    logCon('ok', '✓ Pyodide Python 3.11 ready. Edit code and press Run!');
+    logCon('info', 'Use planner.py + controller.py + simulate_one_step.py for behavior, car_config.py for limits, and car_models.py for dynamics');
+    initModelChips();
+    initWorldUI();
+    if(await runWorldCode()){
+      logCon('info', 'Default world auto-applied at startup');
+    }
+
+  } catch(e) {
+    document.getElementById('pyDot').className = 'dot err';
+    document.getElementById('pyStatus').textContent = 'Error';
+    const usingFileProtocol = window.location.protocol === 'file:';
+    const hint = usingFileProtocol
+      ? ' Open via http://localhost:8000/steerpy.html (not file://).'
+      : ' Ensure server root is this project folder so /src/*.py is reachable.';
+    setLoadTxt('Error: ' + e.message + hint);
+    console.error(e);
+  }
+}
+initPyodide();
+
+// ───────────────────────────────────────────────────────────────
+//  Compile behavior code
+// ───────────────────────────────────────────────────────────────
+function getActiveUpdateErrBar(){
+  if(!document.getElementById('panePlanner').hidden) return document.getElementById('plannerErrBar');
+  if(!document.getElementById('paneController').hidden) return document.getElementById('controllerErrBar');
+  return document.getElementById('errBar');
+}
+function clearUpdateErrBars(){
+  document.getElementById('errBar').style.display = 'none';
+  document.getElementById('plannerErrBar').style.display = 'none';
+  document.getElementById('controllerErrBar').style.display = 'none';
+}
+function buildUpdateBundleCode(){
+  const plannerCode = document.getElementById('plannerEditor').value || '';
+  const controllerCode = document.getElementById('controllerEditor').value || '';
+  const updateCode = document.getElementById('editor').value || '';
+  const hasEntrypoint = /\bdef\s+simulate_one_step\s*\(/.test(updateCode);
+  const resolvedUpdateCode = hasEntrypoint
+    ? updateCode
+    : getPythonSource('simulate_one_step', DEFAULT_CODE);
+  if(!hasEntrypoint && typeof resolvedUpdateCode === 'string' && resolvedUpdateCode.trim()){
+    logCon('info', 'No simulate_one_step() found in editor; using src/simulation_apis/simulate_one_step.py');
+  }
+  return [plannerCode, controllerCode, resolvedUpdateCode]
+    .filter(txt => typeof txt === 'string' && txt.trim())
+    .join('\n\n');
+}
+async function compileCode(){
+  clearUpdateErrBars();
+  const errBar = getActiveUpdateErrBar();
+  try {
+    const code = buildUpdateBundleCode();
+    await pyodide.runPythonAsync(code);
+    await pyodide.runPythonAsync(getPythonSource('entry_adapter', FALLBACK_ENTRY_ADAPTER));
+    const oldFn = pyUpdateFn;
+    pyUpdateFn = pyodide.globals.get('_update_adapter');
+    if(oldFn && oldFn !== pyUpdateFn){
+      try { oldFn.destroy?.(); } catch {}
+    }
+    if(!pyUpdateFn) throw new Error('No step adapter found');
+    pyStepFnName = 'simulate_one_step';
+
+    // Running planner/controller/simulate_one_step means user expects controller logic to take effect now.
+    // Ensure we are not blocked by manual mode or pause state.
+    if(controlMode !== 'auto'){
+      setControlMode('auto');
+      logCon('info', 'Switched to Auto mode so planner/controller/simulate_one_step is active');
+    }
+    if(paused){
+      paused = false;
+      setPauseUI();
+      logCon('info', 'Simulation resumed');
+    }
+
+    logCon('ok', '✓ planner.py + controller.py + simulate_one_step.py compiled');
+  } catch(e){
+    errBar.style.display='block';
+    errBar.textContent = e.toString();
+    logCon('err', e.toString());
+  } finally {
+    flushPyStreams();
+  }
+}
+document.getElementById('btnRun').addEventListener('click', compileCode);
+document.getElementById('btnRunPlanner').addEventListener('click', compileCode);
+document.getElementById('btnRunController').addEventListener('click', compileCode);
+
+function exportEditorCode(editorId, filePrefix){
+  try {
+    const content = document.getElementById(editorId).value || '';
+
+    const now = new Date();
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}${pad2(now.getMonth()+1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`;
+    const fileName = `${filePrefix}_${stamp}.py`;
+
+    const blob = new Blob([content], {type: 'text/x-python;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 0);
+    logCon('ok', `Exported ${fileName}`);
+  } catch(e){
+    logCon('err', 'Export failed: ' + e);
+  }
+}
+document.getElementById('btnExportUpdate').addEventListener('click', ()=>exportEditorCode('editor', 'simulate_one_step'));
+document.getElementById('btnExportPlanner').addEventListener('click', ()=>exportEditorCode('plannerEditor', 'planner'));
+document.getElementById('btnExportController').addEventListener('click', ()=>exportEditorCode('controllerEditor', 'controller'));
+document.getElementById('btnExportCfg').addEventListener('click', ()=>exportEditorCode('cfgEditor', 'car_config'));
+document.getElementById('btnExportWorld').addEventListener('click', ()=>exportEditorCode('worldEditor', 'world_config'));
+
+function readFileAsText(file){
+  if(file && typeof file.text === 'function') return file.text();
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('File read failed'));
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.readAsText(file);
+  });
+}
+function importEditorCode(editorId, updateLineNumsFn, label, onLoaded){
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = '.py,.txt,text/plain,text/x-python';
+  picker.addEventListener('change', async ()=>{
+    try {
+      const file = picker.files && picker.files[0];
+      if(!file) return;
+      const content = await readFileAsText(file);
+      const ta = document.getElementById(editorId);
+      if(!ta) return;
+      ta.value = content;
+      updateLineNumsFn?.();
+      await onLoaded?.(content, file.name);
+      saveEditorsToStorage();
+      logCon('ok', `Imported ${file.name} into ${label}`);
+    } catch(e){
+      logCon('err', 'Import failed: ' + e);
+    }
+  });
+  picker.click();
+}
+
+document.getElementById('btnImportUpdate').addEventListener('click', ()=>{
+  importEditorCode('editor', updateLineNums, 'simulate_one_step.py', async ()=>{
+    clearUpdateErrBars();
+    await compileCode();
+  });
+});
+document.getElementById('btnImportPlanner').addEventListener('click', ()=>{
+  importEditorCode('plannerEditor', updatePlannerLineNums, 'planner.py', async ()=>{
+    clearUpdateErrBars();
+    await compileCode();
+  });
+});
+document.getElementById('btnImportController').addEventListener('click', ()=>{
+  importEditorCode('controllerEditor', updateControllerLineNums, 'controller.py', async ()=>{
+    clearUpdateErrBars();
+    await compileCode();
+  });
+});
+document.getElementById('btnImportModel').addEventListener('click', ()=>{
+  importEditorCode('modelEditor', updateModelLineNums, 'car_models.py', async (content)=>{
+    if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
+      modelSourceByName[currentModelPreset] = content;
+    }
+    document.getElementById('modelErrBar').style.display = 'none';
+    await runModelCode();
+  });
+});
+document.getElementById('btnImportCfg').addEventListener('click', ()=>{
+  importEditorCode('cfgEditor', updateCfgLineNums, 'car_config.py', async ()=>{
+    document.getElementById('cfgErrBar').style.display = 'none';
+    await runCarConfigCode();
+  });
+});
+document.getElementById('btnImportWorld').addEventListener('click', ()=>{
+  importEditorCode('worldEditor', updateWorldLineNums, 'world_config.py', async ()=>{
+    document.getElementById('worldErrorBar').style.display = 'none';
+    await runWorldCode();
+  });
+});
+
+async function runCarConfigCode(){
+  if(!pyodide) return;
+  const errBar = document.getElementById('cfgErrBar');
+  errBar.style.display = 'none';
+  const userCode = document.getElementById('cfgEditor').value;
+  try {
+    pyodide.globals.set('_cfg_src', userCode);
+    await pyodide.runPythonAsync(getPythonSource('cfg_loader', ''));
+
+    const pyCfg = pyodide.globals.get('_cfg_obj');
+    let cfgObj;
+    try {
+      cfgObj = (pyCfg && typeof pyCfg.toJs === 'function')
+        ? pyCfg.toJs({dict_converter: Object.fromEntries})
+        : pyCfg;
+    } finally {
+      try { pyCfg?.destroy?.(); } catch {}
+    }
+    applyCarConfigObject(cfgObj, 'car_config.py');
+  } catch(e){
+    errBar.style.display='block';
+    errBar.textContent = e.toString();
+    logCon('err', e.toString());
+  } finally {
+    try {
+      pyodide.globals.delete('_cfg_src');
+      pyodide.globals.delete('_cfg_ns');
+      pyodide.globals.delete('_cfg_obj');
+    } catch {}
+    flushPyStreams();
+  }
+}
+document.getElementById('btnApplyCfg').addEventListener('click', runCarConfigCode);
+document.getElementById('btnResetCfg').addEventListener('click', async ()=>{
+  const ta = document.getElementById('cfgEditor');
+  ta.value = buildCarConfigCode(carModelConfig);
+  updateCfgLineNums();
+  document.getElementById('cfgErrBar').style.display = 'none';
+  await runCarConfigCode();
+  logCon('info', 'car_config.py refreshed from UI/runtime');
+});
+
+async function applyActivePane(){
+  const paneUpdateShown = !document.getElementById('paneUpdate').hidden;
+  const panePlannerShown = !document.getElementById('panePlanner').hidden;
+  const paneControllerShown = !document.getElementById('paneController').hidden;
+  const paneModelShown  = !document.getElementById('paneModel').hidden;
+  const paneCfgShown    = !document.getElementById('paneCfg').hidden;
+  const paneWorldShown  = !document.getElementById('paneWorld').hidden;
+
+  if(paneWorldShown) return runWorldCode();
+  if(paneCfgShown) return runCarConfigCode();
+  if(paneModelShown) return runModelCode();
+  if(panePlannerShown) return compileCode();
+  if(paneControllerShown) return compileCode();
+  if(paneUpdateShown) return compileCode();
+}
+
+// Ctrl+Enter to run
+document.addEventListener('keydown', (e)=>{
+  if(e.ctrlKey && e.key === 'Enter'){
+    const paneUpdateShown = !document.getElementById('paneUpdate').hidden;
+    const panePlannerShown = !document.getElementById('panePlanner').hidden;
+    const paneControllerShown = !document.getElementById('paneController').hidden;
+    const paneModelShown  = !document.getElementById('paneModel').hidden;
+    const paneCfgShown    = !document.getElementById('paneCfg').hidden;
+    const paneWorldShown  = !document.getElementById('paneWorld').hidden;
+    if((paneUpdateShown || panePlannerShown || paneControllerShown) && !e.shiftKey && !e.altKey){
+      e.preventDefault();
+      compileCode();
+    }
+    if(paneModelShown && e.shiftKey){ e.preventDefault(); runModelCode(); }
+    if(paneCfgShown && e.shiftKey && e.altKey){ e.preventDefault(); runCarConfigCode(); }
+    if(paneWorldShown && e.altKey){ e.preventDefault(); runWorldCode(); }
+  }
+});
+
+// Ctrl/Cmd+S to save current code and apply active pane
+document.addEventListener('keydown', async (e)=>{
+  if(e.repeat) return;
+  const savePressed = (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's';
+  if(!savePressed) return;
+  e.preventDefault();
+  saveEditorsToStorage();
+  await applyActivePane();
+  logCon('ok', '✓ Saved and applied');
+});
+
+// ───────────────────────────────────────────────────────────────
+//  Splitter drag
+// ───────────────────────────────────────────────────────────────
+const splitter = document.getElementById('splitter');
+let dragging = false;
+splitter.addEventListener('mousedown', ()=>{
+  dragging = true;
+  splitter.classList.add('dragging');
+});
+window.addEventListener('mouseup', ()=>{
+  dragging = false;
+  splitter.classList.remove('dragging');
+});
+window.addEventListener('mousemove', (e)=>{
+  if(!dragging) return;
+  const min=280, max=640;
+  const w = Math.max(min, Math.min(max, e.clientX));
+  document.getElementById('codePanel').style.width = w+'px';
+});
+
+// ───────────────────────────────────────────────────────────────
+//  WORLD / TRACK HELPERS (meters)
+// ───────────────────────────────────────────────────────────────
+function isOnTrack(px,py){
+  if(trackPts.length < 2) return true;
+  const closed = track.closed !== false; // default closed
+  const n = trackPts.length;
+  const limit = closed ? n : n - 1;
+  let minDist = Infinity;
+  for(let i = 0; i < limit; i++){
+    const a = trackPts[i];
+    const b = trackPts[(i+1) % n];
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const lenSq = dx*dx+dy*dy;
+    if(lenSq === 0){ minDist = Math.min(minDist, Math.hypot(px-a.x,py-a.y)); continue; }
+    const t = Math.max(0,Math.min(1,((px-a.x)*dx+(py-a.y)*dy)/lenSq));
+    minDist = Math.min(minDist, Math.hypot(px-(a.x+t*dx), py-(a.y+t*dy)));
+  }
+  return minDist < track.width/2;
+}
+function obstacleHit(px,py,ob){
+  if(ob.rect){
+    const dx=px-ob.x, dy=py-ob.y;
+    const rad=ob.heading*Math.PI/180;
+    const lx= dx*Math.cos(rad)+dy*Math.sin(rad);
+    const ly=-dx*Math.sin(rad)+dy*Math.cos(rad);
+    return Math.abs(lx)<ob.hw && Math.abs(ly)<ob.hh;
+  }
+  if(ob.shape==='square'){
+    const r=ob.r*.75;
+    return px>ob.x-r && px<ob.x+r && py>ob.y-r && py<ob.y+r;
+  } else if(ob.shape==='triangle'){
+    return Math.hypot(px-ob.x,py-ob.y)<ob.r*.9;
+  }
+  return Math.hypot(px-ob.x,py-ob.y)<ob.r;
+}
+function castRay(ang,maxD){
+  const rad=ang*Math.PI/180, dx=Math.cos(rad), dy=Math.sin(rad);
+  const steps=180, step=maxD/steps;
+  for(let i=1;i<=steps;i++){
+    const rx=car.x+dx*step*i, ry=car.y+dy*step*i;
+    for(const ob of obstacles){
+      if(obstacleHit(rx,ry,ob)) return step*i;
+    }
+    if(!isOnTrack(rx,ry)) return step*i;
+  }
+  return -1;
+}
+function angleDiffAbsDeg(a, b){
+  return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+}
+function directionalDistanceFromLidar(targetDeg){
+  if(!lidarScan.length) return -1;
+  let best = null;
+  let bestDiff = Infinity;
+  for(const beam of lidarScan){
+    const diff = angleDiffAbsDeg(beam.angle, targetDeg);
+    if(diff < bestDiff){
+      bestDiff = diff;
+      best = beam;
+    }
+  }
+  if(!best) return -1;
+  return best.hit ? best.dist : -1;
+}
+function updateSensors(){
+  const a = car.angle;
+  lidarScan = [];
+  for(let i=0; i<LIDAR_BEAM_COUNT; i++){
+    const ang = a + (i / LIDAR_BEAM_COUNT) * 360;
+    const raw = castRay(ang, LIDAR_MAX_RANGE_M);
+    const hit = raw > 0;
+    const dist = hit ? raw : LIDAR_MAX_RANGE_M;
+    const rad = ang * Math.PI / 180;
+    lidarScan.push({
+      angle: ang,
+      dist,
+      raw,
+      hit,
+      x: car.x + Math.cos(rad) * dist,
+      y: car.y + Math.sin(rad) * dist,
+    });
+  }
+
+  sensors.front = directionalDistanceFromLidar(a);
+  sensors.rear = directionalDistanceFromLidar(a + 180);
+  sensors.left = directionalDistanceFromLidar(a + 90);
+  sensors.right = directionalDistanceFromLidar(a - 90);
+  sensors.front_left = directionalDistanceFromLidar(a + 45);
+  sensors.front_right = directionalDistanceFromLidar(a - 45);
+  sensors.lidar = lidarScan.map(b => (b.hit ? b.dist : -1));
+}
+
+function getActiveCarConfig(){
+  const cfg = normalizeCarConfig(carModelConfig);
+  Object.assign(carModelConfig, cfg);
+  car.length = cfg.length;
+  car.width = cfg.width;
+  car.wheelbase = cfg.wheelbase;
+  car.min_speed = cfg.min_speed;
+  car.max_speed = cfg.max_speed;
+  car.steer_angle = clampRange(car.steer_angle, cfg.min_steering_angle_deg, cfg.max_steering_angle_deg);
+  return cfg;
+}
+function getSteerTargetDeg(input, cfg){
+  const u = clampRange(+input || 0, -1, 1);
+  if(u >= 0) return u * cfg.max_steering_angle_deg;
+  return (-u) * cfg.min_steering_angle_deg;
+}
+function applySteerActuator(dt, cfg){
+  const target = getSteerTargetDeg(car._steer, cfg);
+  const delta = target - car.steer_angle;
+  if(delta >= 0){
+    const step = cfg.max_steering_speed_deg_s * dt;
+    car.steer_angle += Math.min(delta, step);
+  } else {
+    const step = (-cfg.min_steering_speed_deg_s) * dt;
+    car.steer_angle += Math.max(delta, -step);
+  }
+  car.steer_angle = clampRange(car.steer_angle, cfg.min_steering_angle_deg, cfg.max_steering_angle_deg);
+}
+function applyLongitudinalSpeed(dt, cfg){
+  const accel = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
+  car.speed += car._throttle * accel * dt;
+  car.speed -= car._brake * car._brakeForce * dt;
+  car.speed *= (1 - car._friction * dt);
+  car.speed = clampRange(car.speed, cfg.min_speed, cfg.max_speed);
+}
+
+// ───────────────────────────────────────────────────────────────
+//  PHYSICS MODELS (meters)
+// ───────────────────────────────────────────────────────────────
+const PHYSICS_MODELS = {
+  kinematic(dt){
+    if(runModelOverride('kinematic', dt)) return;
+    const cfg = getActiveCarConfig();
+    applyLongitudinalSpeed(dt, cfg);
+    applySteerActuator(dt, cfg);
+    const yawRate = (car.speed / Math.max(car.wheelbase, 0.2)) * Math.tan(-car.steer_angle * Math.PI/180);
+    car.angle += yawRate * dt * (180/Math.PI);
+    const rad = car.angle * Math.PI/180;
+    car.vx = Math.cos(rad) * car.speed;
+    car.vy = Math.sin(rad) * car.speed;
+    car.x += car.vx * dt;
+    car.y += car.vy * dt;
+  },
+
+  bicycle(dt){
+    if(runModelOverride('bicycle', dt)) return;
+    const cfg = getActiveCarConfig();
+    const DEG2RAD = Math.PI / 180;
+    const RAD2DEG = 180 / Math.PI;
+
+    applySteerActuator(dt, cfg);
+    applyLongitudinalSpeed(dt, cfg);
+
+    const v = car.speed;
+    const L = Math.max(0.2, car.wheelbase);
+    const Lr = L * 0.5; // CoM roughly centered between axles
+    const heading = car.angle * DEG2RAD;
+
+    // Convert to math steering sign (left-positive) for bicycle equations.
+    const delta = -car.steer_angle * DEG2RAD;
+    const beta = Math.atan((Lr / L) * Math.tan(delta));
+    const yawRate = (v / Math.max(Lr, 0.05)) * Math.sin(beta); // rad/s
+    const yawStep = yawRate * dt;
+
+    // Integrate using midpoint heading for stability.
+    const travelDir = heading + beta + yawStep * 0.5;
+    car.vx = Math.cos(travelDir) * v;
+    car.vy = Math.sin(travelDir) * v;
+    car.x += car.vx * dt;
+    car.y += car.vy * dt;
+    car.angle += yawStep * RAD2DEG;
+  },
+
+  ackermann(dt){
+    if(runModelOverride('ackermann', dt)) return;
+    const cfg = getActiveCarConfig();
+    const TRACK_HALF = 0.8; // meters
+    applySteerActuator(dt, cfg);
+    applyLongitudinalSpeed(dt, cfg);
+
+    if(Math.abs(car.steer_angle) > 0.1 && Math.abs(car.speed) > 0.5){
+      const sa  = car.steer_angle * Math.PI/180;
+      const L   = car.wheelbase;
+      const tanSa = Math.max(Math.abs(Math.tan(sa)), 1e-6) * Math.sign(sa);
+      const R_in  = L / tanSa - TRACK_HALF;
+      const R_out = L / tanSa + TRACK_HALF;
+      const R_ctr = (R_in + R_out) / 2;
+      const dAngle = (car.speed / Math.max(Math.abs(R_ctr), 0.1))
+                    * Math.sign(R_ctr) * dt * (180/Math.PI);
+      car.angle -= dAngle;
+    }
+    const rad = car.angle * Math.PI/180;
+    car.vx = Math.cos(rad) * car.speed;
+    car.vy = Math.sin(rad) * car.speed;
+    car.x += car.vx * dt;
+    car.y += car.vy * dt;
+  },
+
+  drift(dt){
+    if(runModelOverride('drift', dt)) return;
+    const cfg = getActiveCarConfig();
+    const Cf = 1.8, Cr = 1.3;
+    applySteerActuator(dt, cfg);
+
+    const headRad = car.angle * Math.PI/180;
+    const ch = Math.cos(headRad);
+    const sh = Math.sin(headRad);
+    const vLong = ch * car.vx + sh * car.vy;
+    const vLat  = -sh * car.vx + ch * car.vy;
+
+    const accelF = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
+    const driveF  = car._throttle * accelF;
+    const brakeF  = car._brake    * car._brakeForce;
+    const slip    = Math.atan2(vLat, Math.abs(vLong) + 0.05);
+    const latA    = -Cr * slip * Math.max(2.0, Math.abs(vLong));
+    const axBody  = (driveF - brakeF);
+    const ayBody  = latA;
+    const ax = ch * axBody - sh * ayBody;
+    const ay = sh * axBody + ch * ayBody;
+
+    const sa = car.steer_angle * Math.PI/180;
+    const yawGain = Math.min(1, Math.abs(vLong) / 1.5);
+    car.angle -= (vLong / (car.wheelbase + 0.01)) * Math.tan(sa) * Cf * yawGain * dt * (180/Math.PI);
+
+    car.vx += ax * dt;  car.vy += ay * dt;
+    const damp = clampRange(car._friction + 0.35, 0.05, 0.95);
+    car.vx *= (1 - damp*dt);  car.vy *= (1 - damp*dt);
+
+    const headNow = car.angle * Math.PI / 180;
+    const vLongNow = Math.cos(headNow) * car.vx + Math.sin(headNow) * car.vy;
+    const speedMag = Math.hypot(car.vx, car.vy);
+    const signedSpeed = speedMag < 1e-6 ? 0 : Math.sign(vLongNow || 0) * speedMag;
+    car.speed = clampRange(signedSpeed, cfg.min_speed, cfg.max_speed);
+    car.x += car.vx * dt;
+    car.y += car.vy * dt;
+
+    if(Math.abs(car.speed) < 0.8){
+      const r = car.angle * Math.PI/180;
+      car.vx = Math.cos(r) * car.speed;
+      car.vy = Math.sin(r) * car.speed;
+    }
+  },
+
+  custom(dt){
+    if(runModelOverride('custom', dt)) return;
+    const fallback = (currentModelPreset && currentModelPreset !== 'custom')
+      ? currentModelPreset
+      : 'kinematic';
+    (PHYSICS_MODELS[fallback] || PHYSICS_MODELS.kinematic)(dt);
+  }
+};
+
+// ───────────────────────────────────────────────────────────────
+//  World config + runner
+// ───────────────────────────────────────────────────────────────
+const WORLD_PRESETS = {
+  loop: "", // loaded from src/sample_config/world_config.py
+};
+function applyLoadedPythonSources(){
+  WORLD_PRESETS.loop = getPythonSource('world', WORLD_PRESETS.loop);
+  MODEL_PRESETS.kinematic = getPythonSource('model_kinematic', MODEL_PRESETS.kinematic);
+  MODEL_PRESETS.bicycle = getPythonSource('model_bicycle', MODEL_PRESETS.bicycle);
+  MODEL_PRESETS.ackermann = getPythonSource('model_ackermann', MODEL_PRESETS.ackermann);
+  MODEL_PRESETS.drift = getPythonSource('model_drift', MODEL_PRESETS.drift);
+  MODEL_PRESETS.custom = getPythonSource('model_custom', MODEL_PRESETS.custom);
+}
+function syncModelSourceByNameFromPresets(){
+  for(const key of Object.keys(MODEL_PRESETS)){
+    if(typeof MODEL_PRESETS[key] === 'string'){
+      modelSourceByName[key] = MODEL_PRESETS[key];
+    }
+  }
+}
+
+let worldMode = 'code';
+function selectWorldTab(mode){
+  worldMode = mode;
+  document.querySelectorAll('[data-worldtab]').forEach(ch=>{
+    ch.classList.toggle('active', ch.dataset.worldtab === mode);
+  });
+  const wrap = document.getElementById('worldEditorWrap');
+  const randomWrap = document.getElementById('worldRandomWrap');
+  wrap.style.display = (mode==='code') ? 'flex' : 'none';
+  if(randomWrap) randomWrap.style.display = (mode==='random') ? 'block' : 'none';
+  if(mode==='random'){
+    document.getElementById('worldDesc').textContent =
+      'Generate random worlds with obstacle count, road length, and road width ranges.';
+  } else {
+    document.getElementById('worldDesc').textContent =
+      'Define waypoints[] and obstacles[] in Python (meters). Optional: sample_distance, car_init.';
+  }
+}
+
+function toFixedNum(v, d){
+  return Number((+v).toFixed(d));
+}
+function clampInputNumber(el, min, max, fallback, digits = 0){
+  const raw = +el.value;
+  const finite = Number.isFinite(raw) ? raw : fallback;
+  const clamped = clampRange(finite, min, max);
+  const out = digits > 0 ? toFixedNum(clamped, digits) : Math.round(clamped);
+  el.value = digits > 0 ? out.toFixed(digits) : String(out);
+  return out;
+}
+function readRandomWorldSettings(){
+  const obsMinEl = document.getElementById('randObsMin');
+  const obsMaxEl = document.getElementById('randObsMax');
+  const obsSizeMinEl = document.getElementById('randObsSizeMin');
+  const obsSizeMaxEl = document.getElementById('randObsSizeMax');
+  const lenMinEl = document.getElementById('randRoadLenMin');
+  const lenMaxEl = document.getElementById('randRoadLenMax');
+  const widMinEl = document.getElementById('randRoadWidthMin');
+  const widMaxEl = document.getElementById('randRoadWidthMax');
+
+  let obsMin = clampInputNumber(obsMinEl, 0, 60, 4, 0);
+  let obsMax = clampInputNumber(obsMaxEl, 0, 60, 10, 0);
+  if(obsMin > obsMax){ const t = obsMin; obsMin = obsMax; obsMax = t; }
+  obsMinEl.value = String(obsMin);
+  obsMaxEl.value = String(obsMax);
+
+  let obsSizeMin = clampInputNumber(obsSizeMinEl, 1, 20, 3.0, 1);
+  let obsSizeMax = clampInputNumber(obsSizeMaxEl, 1, 20, 6.0, 1);
+  if(obsSizeMin > obsSizeMax){ const t = obsSizeMin; obsSizeMin = obsSizeMax; obsSizeMax = t; }
+  obsSizeMinEl.value = obsSizeMin.toFixed(1);
+  obsSizeMaxEl.value = obsSizeMax.toFixed(1);
+
+  let roadLenMin = clampInputNumber(lenMinEl, 20, 400, 70, 1);
+  let roadLenMax = clampInputNumber(lenMaxEl, 20, 400, 140, 1);
+  if(roadLenMin > roadLenMax){ const t = roadLenMin; roadLenMin = roadLenMax; roadLenMax = t; }
+  lenMinEl.value = roadLenMin.toFixed(1);
+  lenMaxEl.value = roadLenMax.toFixed(1);
+
+  let roadWidthMin = clampInputNumber(widMinEl, 4, 30, 7, 1);
+  let roadWidthMax = clampInputNumber(widMaxEl, 4, 30, 12, 1);
+  if(roadWidthMin > roadWidthMax){ const t = roadWidthMin; roadWidthMin = roadWidthMax; roadWidthMax = t; }
+  widMinEl.value = roadWidthMin.toFixed(1);
+  widMaxEl.value = roadWidthMax.toFixed(1);
+
+  return { obsMin, obsMax, obsSizeMin, obsSizeMax, roadLenMin, roadLenMax, roadWidthMin, roadWidthMax };
+}
+function buildWorldCodeFromData(waypoints, obstacleList, roadWidth, closed = true, sampleDistance = 1.0){
+  const fmt = (v, d=2) => Number((+v).toFixed(d)).toString();
+  const wpCode = waypoints
+    .map(([x, y]) => `    (${fmt(x, 2)}, ${fmt(y, 2)}),`)
+    .join('\n');
+  const obsCode = obstacleList.length
+    ? obstacleList.map(([x, y, l, w, h]) => `    (${fmt(x, 2)}, ${fmt(y, 2)}, ${fmt(l, 2)}, ${fmt(w, 2)}, ${fmt(h, 1)}),`).join('\n')
+    : '    # (x, y, length, width, heading_deg)';
+  return `# World units are meters.
+# Auto-generated random world.
+waypoints = [
+${wpCode}
+]
+road_width = ${fmt(roadWidth, 2)}
+sample_distance = ${fmt(sampleDistance, 2)}
+loop = ${closed ? 'True' : 'False'}
+
+# obstacles: (cx, cy, length, width, heading_deg)
+obstacles = [
+${obsCode}
+]
+`;
+}
+async function generateRandomWorldFromUI(){
+  if(!pyodide) return;
+  const cfg = readRandomWorldSettings();
+  let pyCfg = null;
+  let pyWorld = null;
+  try {
+    pyCfg = pyodide.toPy(cfg);
+    pyodide.globals.set('_rand_cfg', pyCfg);
+    await pyodide.runPythonAsync(getPythonSource('random_world_generator', ''));
+    pyWorld = pyodide.globals.get('_rand_world');
+    const worldData = (pyWorld && typeof pyWorld.toJs === 'function')
+      ? pyWorld.toJs({dict_converter: Object.fromEntries})
+      : pyWorld;
+
+    const toPairs = (arr) => Array.from(arr || []).map((p) => {
+      const x = +((Array.isArray(p) ? p[0] : p?.x) || 0);
+      const y = +((Array.isArray(p) ? p[1] : p?.y) || 0);
+      return [x, y];
+    });
+    const toObstacleRows = (arr) => Array.from(arr || []).map((o) => {
+      const r = Array.isArray(o) ? o : [o?.x, o?.y, o?.length, o?.width, o?.heading_deg];
+      return [+r[0] || 0, +r[1] || 0, +r[2] || 0, +r[3] || 0, +r[4] || 0];
+    });
+
+    const waypoints = toPairs(worldData?.waypoints);
+    const obstacleList = toObstacleRows(worldData?.obstacles);
+    const roadWidth = +worldData?.road_width || 9;
+    const sampleDistance = (+worldData?.sample_distance > 0) ? +worldData.sample_distance : 1.0;
+    const closed = worldData?.loop !== false;
+    const roadLength = +worldData?.road_length || 0;
+
+    const ta = document.getElementById('worldEditor');
+    ta.value = buildWorldCodeFromData(waypoints, obstacleList, roadWidth, closed, sampleDistance);
+    updateWorldLineNums();
+    const ok = await runWorldCode();
+    if(ok){
+      logCon('info', `Random world generated: length ${roadLength.toFixed(1)}m, width ${roadWidth.toFixed(1)}m, obstacle size ${cfg.obsSizeMin.toFixed(1)}-${cfg.obsSizeMax.toFixed(1)}m, obstacles ${obstacleList.length}`);
+    }
+    selectWorldTab('random');
+  } catch(e){
+    logCon('err', 'Random world generation failed: ' + e);
+  } finally {
+    try { pyWorld?.destroy?.(); } catch {}
+    try { pyCfg?.destroy?.(); } catch {}
+    try {
+      pyodide.globals.delete('_rand_cfg');
+      pyodide.globals.delete('_rand_world');
+    } catch {}
+    flushPyStreams();
+  }
+}
+
+function initWorldUI(){
+  document.getElementById('worldDesc').textContent =
+    'Define waypoints[] and obstacles[] in Python (meters). Optional: sample_distance, car_init.';
+  document.getElementById('btnApplyWorld').addEventListener('click', runWorldCode);
+  document.getElementById('btnResetWorld').addEventListener('click', async ()=>{
+    loadWorldPreset('loop');
+    await runWorldCode();
+  });
+  document.getElementById('btnGenerateRandomWorld').addEventListener('click', generateRandomWorldFromUI);
+  selectWorldTab(worldMode);
+}
+function loadWorldPreset(name){
+  const code = WORLD_PRESETS[name];
+  if(!code) return;
+  const ta = document.getElementById('worldEditor');
+  ta.value = code;
+  updateWorldLineNums();
+  selectWorldTab('code');
+}
+
+function parseSampleDistance(raw, fallback = 1.0){
+  const n = +raw;
+  if(Number.isFinite(n) && n > 0) return n;
+  return fallback;
+}
+
+function parseWorldCarInit(raw){
+  if(raw == null) return null;
+  const toNum = (v) => {
+    const n = +v;
+    return Number.isFinite(n) ? n : null;
+  };
+  const out = {};
+
+  if(Array.isArray(raw)){
+    const nx = toNum(raw[0]), ny = toNum(raw[1]);
+    const nh = toNum(raw[2]), ns = toNum(raw[3]), nv = toNum(raw[4]);
+    if(nx != null) out.x = nx;
+    if(ny != null) out.y = ny;
+    if(nh != null) out.heading = nh;
+    if(ns != null) out.steering = ns;
+    if(nv != null) out.speed = nv;
+  } else if(typeof raw === 'object'){
+    const pick = (...keys) => {
+      for(const k of keys){
+        if(Object.prototype.hasOwnProperty.call(raw, k)) return raw[k];
+      }
+      return undefined;
+    };
+    const nx = toNum(pick('x'));
+    const ny = toNum(pick('y'));
+    const nh = toNum(pick('heading', 'heading_deg', 'angle', 'angle_deg'));
+    const ns = toNum(pick('steering', 'steering_deg', 'steer_angle', 'steer_angle_deg'));
+    const nv = toNum(pick('speed', 'speed_mps'));
+    if(nx != null) out.x = nx;
+    if(ny != null) out.y = ny;
+    if(nh != null) out.heading = nh;
+    if(ns != null) out.steering = ns;
+    if(nv != null) out.speed = nv;
+  } else {
+    return null;
+  }
+
+  return Object.keys(out).length ? out : null;
+}
+
+function buildWorldRoadDataPayload(){
+  const controlPts = Array.isArray(track.controlPts) ? track.controlPts : [];
+  const buildPath = () => {
+    const pathPts = Array.isArray(trackPts) ? trackPts : [];
+    if(pathPts.length < 1) return [];
+
+    // For loop tracks, rotate the payload path so it starts near the car.
+    // This prevents planners that consume path sequentially from stalling
+    // at the geometric "end" of a closed loop.
+    if(track.closed !== false && pathPts.length > 1){
+      let bestIdx = 0;
+      let bestD2 = Infinity;
+      for(let i=0; i<pathPts.length; i++){
+        const dx = (+pathPts[i].x || 0) - car.x;
+        const dy = (+pathPts[i].y || 0) - car.y;
+        const d2 = dx*dx + dy*dy;
+        if(d2 < bestD2){
+          bestD2 = d2;
+          bestIdx = i;
+        }
+      }
+      const rotated = [];
+      for(let i=0; i<pathPts.length; i++){
+        const p = pathPts[(bestIdx + i) % pathPts.length];
+        rotated.push([+(p.x || 0), +(p.y || 0)]);
+      }
+      return rotated;
+    }
+
+    return pathPts.map(p => [+(p.x || 0), +(p.y || 0)]);
+  };
+  return {
+    width: +track.width || 0,
+    sample_distance: parseSampleDistance(track.sample_distance, 1.0),
+    waypoints: controlPts.map(p => [+(p.x || 0), +(p.y || 0)]),
+    path: buildPath(),
+  };
+}
+function buildWorldObstaclesPayload(){
+  return (obstacles || []).map(o => ({
+    x: +o.x || 0,
+    y: +o.y || 0,
+    length: +((o.hw || 0) * 2),
+    width: +((o.hh || 0) * 2),
+    heading_deg: +o.heading || 0,
+  }));
+}
+function syncWorldScenarioToPython(){
+  if(!pyodide || !pySetWorldScenarioFn) return;
+  const roadPayload = buildWorldRoadDataPayload();
+  const obstaclePayload = buildWorldObstaclesPayload();
+  let pyRoad = null;
+  let pyObs = null;
+  try {
+    pyRoad = pyodide.toPy(roadPayload);
+    pyObs = pyodide.toPy(obstaclePayload);
+    pySetWorldScenarioFn(pyRoad, pyObs, track.closed !== false);
+  } catch(e){
+    logCon('err', 'world_model scenario sync failed: ' + e);
+  } finally {
+    try { pyRoad?.destroy?.(); } catch {}
+    try { pyObs?.destroy?.(); } catch {}
+  }
+}
+
+let restartingScenario = false;
+
+// apply world in meters
+function applyWorldData(waypointsRaw, pathRaw, obstaclesRaw, roadWidth, closed, carInit = null, sampleDistance = 1.0){
+  const toMeters = (v) => (+v);
+  const toMetersLen = (v) => (+v);
+
+  const control = waypointsRaw.map(p => ({x: toMeters(p[0]), y: toMeters(p[1])}));
+  if(control.length < 2){ logCon('err','Need at least 2 waypoints'); return; }
+
+  const resolvedSampleDistance = parseSampleDistance(sampleDistance, 1.0);
+  const rawPath = Array.isArray(pathRaw) && pathRaw.length ? pathRaw : waypointsRaw;
+  trackPts = rawPath.map(p => ({x: toMeters(p[0]), y: toMeters(p[1])}));
+  track.width  = (roadWidth != null ? toMetersLen(roadWidth) : 9);
+  track.sample_distance = resolvedSampleDistance;
+  track.closed = closed;
+  track.controlPts = control;
+
+  obstacles = (obstaclesRaw || []).map(o => ({
+    x: toMeters(o[0]), y: toMeters(o[1]),
+    hw: toMetersLen(o[2]) / 2, hh: toMetersLen(o[3]) / 2,
+    heading: +o[4],
+    rect: true,
+    hue: Math.random()*40+5
+  }));
+
+  const p0 = control[0];
+  const p1 = control[1];
+  const defaultHeading = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
+  const spawn = carInit || {};
+
+  car.x = Number.isFinite(spawn.x) ? spawn.x : p0.x;
+  car.y = Number.isFinite(spawn.y) ? spawn.y : p0.y;
+  car.angle = Number.isFinite(spawn.heading) ? spawn.heading : defaultHeading;
+  car.steer_angle = Number.isFinite(spawn.steering) ? spawn.steering : 0;
+  car.speed = Number.isFinite(spawn.speed) ? clampRange(spawn.speed, car.min_speed, car.max_speed) : 0;
+
+  const headRad = car.angle * Math.PI / 180;
+  car.vx = Math.cos(headRad) * car.speed;
+  car.vy = Math.sin(headRad) * car.speed;
+  car.trail = [];
+
+  syncWorldScenarioToPython();
+
+  logCon('ok', `✓ World loaded: ${control.length} waypoints, ${obstacles.length} obstacles, ${closed?'loop':'open'} (m)`);
+}
+
+async function runWorldCode(){
+  if(!pyodide) return false;
+  const errBar = document.getElementById('worldErrorBar');
+  errBar.style.display = 'none';
+  const userCode = document.getElementById('worldEditor').value;
+
+  const sizeInject = `W = ${Math.round(W)}\nH = ${Math.round(H)}\nWm = ${ (W * M_PER_PX).toFixed(4) }\nHm = ${ (H * M_PER_PX).toFixed(4) }\n`;
+
+  try {
+    await pyodide.runPythonAsync(sizeInject + userCode);
+
+    const toJsValue = (value, opts) => (value && typeof value.toJs === 'function') ? value.toJs(opts) : value;
+
+    const pyWp = pyodide.globals.get('waypoints');
+    if(!pyWp) throw new Error("'waypoints' not defined. Please define: waypoints = [(x,y), ...]");
+    let wpList;
+    try {
+      wpList = toJsValue(pyWp, {dict_converter: Object.fromEntries});
+    } finally {
+      try { pyWp.destroy?.(); } catch {}
+    }
+    const waypoints = Array.from(wpList).map(p => {
+      const arr = Array.from(p);
+      return [arr[0], arr[1]];
+    });
+
+    let obstacleList = [];
+    if(pyodide.globals.has('obstacles')){
+      const pyObs = pyodide.globals.get('obstacles');
+      let obJs;
+      try {
+        obJs = toJsValue(pyObs);
+      } finally {
+        try { pyObs.destroy?.(); } catch {}
+      }
+      if(obJs) obstacleList = Array.from(obJs).map(o => Array.from(o));
+    }
+
+    let closed = true;
+    if(pyodide.globals.has('loop')){
+      const pyLoop = pyodide.globals.get('loop');
+      try {
+        closed = !!toJsValue(pyLoop);
+      } finally {
+        try { pyLoop.destroy?.(); } catch {}
+      }
+    }
+
+    let roadWidth = 9;
+    if(pyodide.globals.has('road_width')){
+      const pyRoadWidth = pyodide.globals.get('road_width');
+      try {
+        const rw = +toJsValue(pyRoadWidth);
+        if(Number.isFinite(rw)) roadWidth = rw;
+      } finally {
+        try { pyRoadWidth.destroy?.(); } catch {}
+      }
+    }
+
+    let carInit = null;
+    if(pyodide.globals.has('car_init')){
+      const pyCarInit = pyodide.globals.get('car_init');
+      let rawCarInit = null;
+      try {
+        rawCarInit = toJsValue(pyCarInit, {dict_converter: Object.fromEntries});
+      } finally {
+        try { pyCarInit.destroy?.(); } catch {}
+      }
+      carInit = parseWorldCarInit(rawCarInit);
+      if(rawCarInit != null && !carInit){
+        logCon('info', "Ignoring car_init: use [x, y, heading_deg, steering_deg, speed_mps] or a dict.");
+      }
+    }
+
+    let sampleDistance = 1.0;
+    if(pyodide.globals.has('sample_distance')){
+      const pySampleDistance = pyodide.globals.get('sample_distance');
+      try {
+        const sd = +toJsValue(pySampleDistance);
+        if(Number.isFinite(sd) && sd > 0) sampleDistance = sd;
+      } finally {
+        try { pySampleDistance.destroy?.(); } catch {}
+      }
+    }
+
+    let pathList = [];
+    if(pySetWorldScenarioFn && pyWorldModel){
+      let pyRoad = null;
+      let pyObs = null;
+      let pyRoadData = null;
+      try {
+        pyRoad = pyodide.toPy({
+          width: roadWidth,
+          sample_distance: sampleDistance,
+          waypoints: waypoints,
+          path: waypoints,
+        });
+        pyObs = pyodide.toPy(obstacleList.map(o => ({
+          x: +o[0] || 0,
+          y: +o[1] || 0,
+          length: +o[2] || 0,
+          width: +o[3] || 0,
+          heading_deg: +o[4] || 0,
+        })));
+        pySetWorldScenarioFn(pyRoad, pyObs, closed);
+        pyRoadData = pyWorldModel.road_data;
+        const roadDataJs = toJsValue(pyRoadData, {dict_converter: Object.fromEntries});
+        const rawPath = Array.from(roadDataJs?.path || []);
+        pathList = rawPath.map(p => {
+          const arr = Array.from(p);
+          return [+arr[0] || 0, +arr[1] || 0];
+        });
+      } catch(e){
+        logCon('err', 'Failed to derive world path from Python WorldModel: ' + e);
+      } finally {
+        try { pyRoadData?.destroy?.(); } catch {}
+        try { pyRoad?.destroy?.(); } catch {}
+        try { pyObs?.destroy?.(); } catch {}
+      }
+    }
+
+    applyWorldData(waypoints, pathList, obstacleList, roadWidth, closed, carInit, sampleDistance);
+    return true;
+
+  } catch(e){
+    errBar.style.display = 'block';
+    errBar.textContent = e.toString();
+    logCon('err', e.toString());
+    return false;
+  } finally {
+    flushPyStreams();
+  }
+}
+
+async function restartScenario(){
+  if(restartingScenario || !pyodide) return;
+  restartingScenario = true;
+  const btn = document.getElementById('btnRestartScenario');
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '↻ <span>Restarting…</span>';
+  }
+  try {
+    const ok = await runWorldCode();
+    if(ok) logCon('ok', '✓ Scenario restarted from world_config.py');
+  } finally {
+    restartingScenario = false;
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = '↻ <span>Restart</span>';
+    }
+  }
+}
+
+// init default world
+loadWorldPreset('loop');
+
+// ───────────────────────────────────────────────────────────────
+//  car_models support (per-model override)
+// ───────────────────────────────────────────────────────────────
+const pyModelOverrides = Object.create(null);
+let currentModelPreset = 'kinematic';
+let activeModel = 'kinematic';
+const MODEL_ORDER = ['kinematic','bicycle','ackermann','drift','custom'];
+
+const MODEL_PRESETS = {
+  kinematic: "",
+  bicycle: "",
+  ackermann: "",
+  drift: "",
+  custom: "",
+};
+
+// Mutable per-model source text so users can edit each model independently.
+const modelSourceByName = Object.fromEntries(Object.entries(MODEL_PRESETS));
+
+function destroyModelOverride(name){
+  const ov = pyModelOverrides[name];
+  if(!ov) return;
+  if(activeModel === name && pyCar && typeof pyCar.clear_model === 'function'){
+    try { pyCar.clear_model(); } catch {}
+  }
+  try { ov.fn?.destroy?.(); } catch {}
+  try { ov.state?.destroy?.(); } catch {}
+  delete pyModelOverrides[name];
+}
+
+function runModelOverride(name, dt){
+  const ov = pyModelOverrides[name];
+  if(!ov) return false;
+  try {
+    if(!(pyCar && typeof pyCar.load_model === 'function' && typeof pyCar.simulate_one_step === 'function')){
+      return false;
+    }
+
+    pyCar.load_model(ov.fn, ov.state, name);
+    pyCar.x = car.x; pyCar.y = car.y;
+    pyCar.angle = car.angle;
+    pyCar.speed = car.speed;
+    pyCar.vx = car.vx; pyCar.vy = car.vy;
+    pyCar.steer_angle = car.steer_angle;
+    pyCar.length = car.length; pyCar.width = car.width;
+    pyCar.wheelbase = car.wheelbase;
+    pyCar.min_speed = car.min_speed;
+    pyCar.max_speed = car.max_speed;
+    pyCar.min_accel = carModelConfig.min_accel;
+    pyCar.max_accel = carModelConfig.max_accel;
+    pyCar.min_steering_angle_deg = carModelConfig.min_steering_angle_deg;
+    pyCar.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
+    pyCar.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
+    pyCar.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
+    pyCar.apply_control(car._throttle, car._brake, car._steer);
+    pyCar.simulate_one_step(dt, car._accelForce, car._brakeForce, car._friction);
+    syncPyCarStateToJsCar();
+    return true;
+  } catch(e){
+    logCon('err', `car_models(${name}) failed: ${e}`);
+    destroyModelOverride(name);
+    return false;
+  }
+}
+
+function initModelChips(){
+  const row = document.getElementById('modelChipsRow');
+  row.innerHTML = '';
+  MODEL_ORDER.forEach(m=>{
+    const div = document.createElement('div');
+    div.className = 'chip' + (m===currentModelPreset ? ' active' : '');
+    div.textContent = m;
+    div.addEventListener('click', ()=>loadModelPreset(m));
+    row.appendChild(div);
+  });
+}
+
+function loadModelPreset(name){
+  if(!Object.prototype.hasOwnProperty.call(modelSourceByName, name)){
+    name = MODEL_ORDER[0];
+  }
+  const ta = document.getElementById('modelEditor');
+  if(currentModelPreset && currentModelPreset !== name && modelSourceByName[currentModelPreset] != null){
+    modelSourceByName[currentModelPreset] = ta.value;
+  }
+
+  currentModelPreset = name;
+  activeModel = name;
+
+  document.querySelectorAll('#modelChipsRow .chip').forEach(c=>{
+    c.classList.toggle('active', c.textContent === name);
+  });
+
+  const src = modelSourceByName[name];
+  const fallback = MODEL_PRESETS[name] || '';
+  const resolved = (typeof src === 'string' && src.trim()) ? src : fallback;
+  modelSourceByName[name] = resolved;
+  ta.value = resolved;
+  updateModelLineNums();
+
+  document.getElementById('modelDesc').textContent =
+    name === 'custom'
+      ? 'You are editing a Python physics step(state, dt) model (meters). Geometry and limits are synced from UI + car_config.py.'
+      : `Using built-in JS ${name} model (meters). Limits come from car_config.py. Edit this Python template and press “Apply Model” to override the ${name} model.`;
+
+  document.getElementById('hudModel').textContent = name;
+}
+
+async function runModelCode(){
+  if(!pyodide) return;
+  const errBar = document.getElementById('modelErrBar');
+  errBar.style.display = 'none';
+  const userCode = document.getElementById('modelEditor').value;
+  const modelName = currentModelPreset;
+  if(modelSourceByName[modelName] != null) modelSourceByName[modelName] = userCode;
+
+  let stepFn = null;
+  let stateObj = null;
+
+  try {
+    pyodide.globals.set('_model_src', userCode);
+    await pyodide.runPythonAsync(getPythonSource('model_loader', ''));
+    stepFn = pyodide.globals.get('_step_obj');
+    stateObj = pyodide.globals.get('_state_obj');
+    try {
+      pyodide.globals.delete('_model_src');
+      pyodide.globals.delete('_model_ns');
+      pyodide.globals.delete('_step_obj');
+      pyodide.globals.delete('_state_obj');
+    } catch {}
+
+    destroyModelOverride(modelName);
+    pyModelOverrides[modelName] = { fn: stepFn, state: stateObj };
+    stepFn = null;
+    stateObj = null;
+
+    if(pyCar && typeof pyCar.load_model === 'function'){
+      try { pyCar.load_model(pyModelOverrides[modelName].fn, pyModelOverrides[modelName].state, modelName); } catch {}
+    }
+
+    activeModel = modelName;
+    document.getElementById('hudModel').textContent = modelName;
+
+    logCon('ok', `✓ car_models.py applied (${modelName})`);
+  } catch(e){
+    try { stepFn?.destroy?.(); } catch {}
+    try { stateObj?.destroy?.(); } catch {}
+    errBar.style.display='block';
+    errBar.textContent = e.toString();
+    logCon('err', e.toString());
+  } finally {
+    try {
+      pyodide.globals.delete('_model_src');
+      pyodide.globals.delete('_model_ns');
+      pyodide.globals.delete('_step_obj');
+      pyodide.globals.delete('_state_obj');
+    } catch {}
+    flushPyStreams();
+  }
+}
+document.getElementById('btnRunModel').addEventListener('click', runModelCode);
+document.getElementById('btnResetModel').addEventListener('click', async ()=>{
+  const modelName = currentModelPreset;
+  destroyModelOverride(modelName);
+  modelSourceByName[modelName] = MODEL_PRESETS[modelName] || '';
+  const ta = document.getElementById('modelEditor');
+  ta.value = modelSourceByName[modelName];
+  updateModelLineNums();
+  activeModel = modelName;
+  document.getElementById('hudModel').textContent = modelName;
+  await runModelCode();
+  logCon('info', 'Model reset to built-in preset: ' + modelName);
+});
+
+// ───────────────────────────────────────────────────────────────
+//  Input sync: Python writes pyCar.throttle/brake/steer
+// ───────────────────────────────────────────────────────────────
+function syncCarInputs(){
+  // clamp
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b, v));
+  car._throttle = clamp(+pyCar.throttle || 0, 0, 1);
+  car._brake    = clamp(+pyCar.brake    || 0, 0, 1);
+  car._steer    = clamp(+pyCar.steer    || 0, -1, 1);
+}
+
+function syncPyCarStateToJsCar(){
+  car.x = +pyCar.x; car.y = +pyCar.y;
+  car.angle = +pyCar.angle;
+  car.speed = +pyCar.speed;
+  car.vx = +pyCar.vx; car.vy = +pyCar.vy;
+  car.steer_angle = +pyCar.steer_angle;
+
+  const nextLen = +pyCar.length;
+  const nextWid = +pyCar.width;
+  const nextWb  = +pyCar.wheelbase;
+  const nextMin = +pyCar.min_speed;
+  const nextMax = +pyCar.max_speed;
+  let geomChanged = false;
+  if(Number.isFinite(nextLen) && nextLen > 0.5){ car.length = nextLen; geomChanged = true; }
+  if(Number.isFinite(nextWid) && nextWid > 0.5){ car.width = nextWid; geomChanged = true; }
+  if(Number.isFinite(nextWb) && nextWb > 0.2){ car.wheelbase = nextWb; geomChanged = true; }
+  if(Number.isFinite(nextMin)){ car.min_speed = nextMin; }
+  if(Number.isFinite(nextMax) && nextMax > 0.1){ car.max_speed = nextMax; }
+  if(car.min_speed > car.max_speed){ const t = car.min_speed; car.min_speed = car.max_speed; car.max_speed = t; }
+  car.speed = clampRange(car.speed, car.min_speed, car.max_speed);
+  if(geomChanged && typeof syncVehicleConfigUI === 'function') syncVehicleConfigUI();
+  else if(typeof syncVehicleConfigToPython === 'function') syncVehicleConfigToPython();
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Reset behavior editors
+// ───────────────────────────────────────────────────────────────
+async function resetUpdateCode(){
+  const ta = document.getElementById('editor');
+  ta.value = getPythonSource('simulate_one_step', DEFAULT_CODE);
+  updateLineNums();
+  clearUpdateErrBars();
+  await compileCode();
+  logCon('info', 'simulate_one_step.py reset to default template');
+}
+document.getElementById('btnReset').addEventListener('click', resetUpdateCode);
+async function resetPlannerCode(){
+  const ta = document.getElementById('plannerEditor');
+  ta.value = getPythonSource('planner', DEFAULT_PLANNER_CODE);
+  updatePlannerLineNums();
+  clearUpdateErrBars();
+  await compileCode();
+  logCon('info', 'planner.py reset to default template');
+}
+async function resetControllerCode(){
+  const ta = document.getElementById('controllerEditor');
+  ta.value = getPythonSource('controller', DEFAULT_CONTROLLER_CODE);
+  updateControllerLineNums();
+  clearUpdateErrBars();
+  await compileCode();
+  logCon('info', 'controller.py reset to default template');
+}
+document.getElementById('btnResetPlanner').addEventListener('click', resetPlannerCode);
+document.getElementById('btnResetController').addEventListener('click', resetControllerCode);
+
+// ───────────────────────────────────────────────────────────────
+//  DRAWING (meters -> pixels)
+// ───────────────────────────────────────────────────────────────
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+let showGrid=true, showSensors=true, showTrail=true, showDebugDraw=true;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.1;
+let viewZoom = 1;
+const mouseCanvasState = { inside:false, x:0, y:0 };
+
+function clampRange(v, min, max){
+  return Math.max(min, Math.min(max, v));
+}
+function getViewPxPerM(){
+  return PX_PER_M * viewZoom;
+}
+function getViewOriginPx(){
+  const base = WORLD_ORIGIN();
+  if(viewMode !== 'follow') return base;
+  const ppm = getViewPxPerM();
+  return { x: base.x - car.x * ppm, y: base.y + car.y * ppm };
+}
+function setViewZoom(next){
+  viewZoom = clampRange(Math.round(next / ZOOM_STEP) * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX);
+  const zoomScaleEl = document.getElementById('zoomScale');
+  const zoomScaleVal = document.getElementById('zoomScaleVal');
+  if(zoomScaleEl) zoomScaleEl.value = viewZoom.toFixed(1);
+  if(zoomScaleVal) zoomScaleVal.textContent = viewZoom.toFixed(1);
+}
+function stepZoom(direction){
+  setViewZoom(viewZoom + direction * ZOOM_STEP);
+}
+function setMouseCanvasFromClient(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  mouseCanvasState.x = x;
+  mouseCanvasState.y = y;
+  mouseCanvasState.inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
+}
+function getMouseWorldPos(){
+  if(!mouseCanvasState.inside) return null;
+  const o = getViewOriginPx();
+  const ppm = getViewPxPerM();
+  return {
+    x: (mouseCanvasState.x - o.x) / ppm,
+    y: (o.y - mouseCanvasState.y) / ppm
+  };
+}
+
+function drawGrid(){
+  if(!showGrid) return;
+  const spacing = getViewPxPerM();
+  const o = getViewOriginPx();
+  ctx.strokeStyle='rgba(255,255,255,.018)'; ctx.lineWidth=1;
+  const ox = o.x % spacing;
+  const oy = o.y % spacing;
+  for(let x=ox; x<=W; x+=spacing){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for(let y=oy; y<=H; y+=spacing){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+}
+function withWorldTransform(fn){
+  ctx.save();
+  const o = getViewOriginPx();
+  ctx.translate(o.x, o.y);
+  ctx.scale(getViewPxPerM(), -getViewPxPerM());
+  fn();
+  ctx.restore();
+}
+function drawTrack(){
+  if(!trackPts.length) return;
+  const closed = track.closed !== false;
+
+  const drawPath=(strokeStyle, lineWidthM, dashM)=>{
+    ctx.beginPath();
+    trackPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    if(closed) ctx.closePath();
+    ctx.strokeStyle=strokeStyle;
+    ctx.lineWidth=lineWidthM;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    if(dashM) ctx.setLineDash(dashM); else ctx.setLineDash([]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+
+  drawPath('#1c2235', track.width);
+  drawPath('#1a1f30', Math.max(0.1, track.width-0.6));
+  drawPath('rgba(255,210,40,.18)', 0.08, [1.6,1.4]);
+}
+function obPath(ob){
+  if(ob.rect){
+    ctx.save();
+    ctx.translate(ob.x,ob.y);
+    ctx.rotate(ob.heading*Math.PI/180);
+    rrect(-ob.hw,-ob.hh,ob.hw*2,ob.hh*2,0.12);
+    ctx.restore();
+    return;
+  }
+  const r=ob.r;
+  if(ob.shape==='square'){
+    rrect(ob.x-r*.75,ob.y-r*.75,r*1.5,r*1.5,0.12);
+  } else if(ob.shape==='triangle'){
+    ctx.beginPath();
+    ctx.moveTo(ob.x, ob.y-r);
+    ctx.lineTo(ob.x+r*0.866, ob.y+r*0.5);
+    ctx.lineTo(ob.x-r*0.866, ob.y+r*0.5);
+    ctx.closePath();
+  } else {
+    ctx.beginPath(); ctx.arc(ob.x,ob.y,r,0,Math.PI*2);
+  }
+}
+function drawObstacles(){
+  for(const ob of obstacles){
+    obPath(ob);
+    const hue = ob.hue ?? 15;
+    ctx.fillStyle=`hsla(${hue},90%,55%,.15)`; ctx.fill();
+    ctx.strokeStyle=`hsl(${hue},90%,55%)`; ctx.lineWidth=0.08; ctx.stroke();
+  }
+}
+function drawSensors(){
+  if(!showSensors) return;
+  if(!lidarScan || lidarScan.length === 0) return;
+
+  const maxRange = LIDAR_MAX_RANGE_M;
+  const pulse = 0.72 + 0.28*Math.sin(simTime*8);
+
+  const glow = ctx.createRadialGradient(car.x, car.y, 0, car.x, car.y, maxRange);
+  glow.addColorStop(0, 'rgba(0,229,255,.06)');
+  glow.addColorStop(1, 'rgba(0,229,255,0)');
+  ctx.beginPath();
+  ctx.arc(car.x, car.y, maxRange, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(car.x, car.y, maxRange, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,229,255,.14)';
+  ctx.lineWidth = 0.03;
+  ctx.setLineDash([0.26, 0.26]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for(let i=0; i<lidarScan.length; i++){
+    const beam = lidarScan[i];
+    const strength = beam.hit ? (1 - beam.dist / maxRange) : 0;
+    const rayA = beam.hit ? (0.12 + 0.32 * strength) * pulse : 0.05 * pulse;
+
+    ctx.beginPath();
+    ctx.moveTo(car.x, car.y);
+    ctx.lineTo(beam.x, beam.y);
+    ctx.strokeStyle = `rgba(125,249,255,${rayA.toFixed(3)})`;
+    ctx.lineWidth = beam.hit ? 0.035 : 0.02;
+    ctx.stroke();
+
+    if(!beam.hit) continue;
+    const hitA = (0.22 + 0.42 * strength) * pulse;
+    ctx.beginPath();
+    ctx.arc(beam.x, beam.y, 0.065 + 0.08 * strength, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,229,255,${hitA.toFixed(3)})`;
+    ctx.fill();
+  }
+}
+function drawTrail(){
+  if(!showTrail) return;
+  if(!car.trail||car.trail.length<2) return;
+  ctx.beginPath(); ctx.moveTo(car.trail[0].x,car.trail[0].y);
+  for(let i=1;i<car.trail.length;i++) ctx.lineTo(car.trail[i].x,car.trail[i].y);
+  ctx.strokeStyle='rgba(0,229,255,.13)'; ctx.lineWidth=0.18; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+}
+function drawPythonLines(){
+  if(!showDebugDraw) return;
+  if(!pyDrawLines || !pyDrawLines.length) return;
+
+  for(const line of pyDrawLines){
+    const pts = line.points;
+    if(!pts || pts.length < 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1; i<pts.length; i++){
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.strokeStyle = line.color || 'rgba(125,249,255,.9)';
+    ctx.lineWidth = Number.isFinite(line.width) ? Math.max(0.01, line.width) : 0.08;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+function drawCar(){
+  ctx.save();
+  ctx.translate(car.x,car.y);
+  // Car artwork is authored with forward = local -Y, while simulation heading
+  // defines 0 deg as +X. Add +90 deg so visuals match heading math.
+  ctx.rotate((car.angle + 90)*Math.PI/180);
+
+  const carLength = car.length;
+  const carWidth  = car.width;
+  const wheelLength = 0.72;
+  const wheelWidth  = 0.28;
+  const halfWheelL = wheelLength / 2;
+  const halfWheelW = wheelWidth / 2;
+  const axleYFront = -car.wheelbase / 2;
+  const axleYRear  =  car.wheelbase / 2;
+  const wheelX = carWidth / 2 + 0.16;
+  const steerPhysDeg = Number.isFinite(car.steer_angle) ? car.steer_angle : 0;
+  // Canvas transform is mirrored on Y, so visual wheel rotation needs opposite sign.
+  const visualSteerDeg = -steerPhysDeg;
+  let frontLeftSteerDeg = visualSteerDeg;
+  let frontRightSteerDeg = visualSteerDeg;
+
+  // Ackermann visualization: inner/outer wheel should not share identical angle.
+  if(activeModel === 'ackermann' && Math.abs(steerPhysDeg) > 0.05){
+    const L = Math.max(car.wheelbase, 0.2);
+    const frontTrack = Math.max(0.25, wheelX * 2);
+    const absDeltaRad = Math.abs(steerPhysDeg) * Math.PI / 180;
+    const tanAbs = Math.tan(absDeltaRad);
+    if(Number.isFinite(tanAbs) && Math.abs(tanAbs) > 1e-6){
+      const radiusCenter = L / tanAbs;
+      const denomInner = Math.max(0.05, radiusCenter - frontTrack * 0.5);
+      const denomOuter = radiusCenter + frontTrack * 0.5;
+      const innerDeg = Math.atan(L / denomInner) * 180 / Math.PI;
+      const outerDeg = Math.atan(L / denomOuter) * 180 / Math.PI;
+      if(steerPhysDeg > 0){
+        // Right turn: right wheel is inner (visual sign is inverted).
+        frontRightSteerDeg = -innerDeg;
+        frontLeftSteerDeg = -outerDeg;
+      } else {
+        // Left turn: left wheel is inner (visual sign is inverted).
+        frontLeftSteerDeg = innerDeg;
+        frontRightSteerDeg = outerDeg;
+      }
+    }
+  }
+
+  function drawWheel(wx, wy, steerDeg){
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.rotate((steerDeg || 0) * Math.PI/180);
+    ctx.fillStyle='#0f172a';
+    ctx.strokeStyle='rgba(148,163,184,.85)';
+    ctx.lineWidth=0.045;
+    rrect(-halfWheelW, -halfWheelL, wheelWidth, wheelLength, 0.06);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -halfWheelL + 0.06);
+    ctx.lineTo(0,  halfWheelL - 0.06);
+    ctx.strokeStyle='rgba(203,213,225,.45)';
+    ctx.lineWidth=0.03;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // rear wheels (fixed) + front wheels (steering visualization)
+  drawWheel(-wheelX, axleYRear, 0);
+  drawWheel( wheelX, axleYRear, 0);
+  drawWheel(-wheelX, axleYFront, frontLeftSteerDeg);
+  drawWheel( wheelX, axleYFront, frontRightSteerDeg);
+
+  // steering direction indicator on front axle
+  const steerRad = visualSteerDeg * Math.PI/180;
+  const steerLen = 1.0;
+  ctx.beginPath();
+  ctx.moveTo(0, axleYFront);
+  ctx.lineTo(0, axleYFront - steerLen);
+  ctx.strokeStyle='rgba(148,163,184,.35)';
+  ctx.lineWidth=0.035;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, axleYFront);
+  ctx.lineTo(Math.sin(steerRad) * steerLen, axleYFront - Math.cos(steerRad) * steerLen);
+  ctx.strokeStyle='rgba(0,229,255,.85)';
+  ctx.lineWidth=0.05;
+  ctx.stroke();
+
+  const g=ctx.createRadialGradient(0,0,0,0,0,6.5);
+  g.addColorStop(0,'rgba(0,229,255,.10)'); g.addColorStop(1,'rgba(0,229,255,0)');
+  ctx.fillStyle=g; ctx.fillRect(-6.5,-6.5,13,13);
+
+  ctx.fillStyle='#081426'; ctx.strokeStyle='#00e5ff'; ctx.lineWidth=0.08;
+  rrect(-carWidth/2,-carLength/2,carWidth,carLength,0.18); ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle='rgba(0,229,255,.55)';
+  ctx.beginPath();
+  ctx.moveTo(0,-carLength/2-0.6);
+  ctx.lineTo(-0.25,-carLength/2+0.2);
+  ctx.lineTo(0.25,-carLength/2+0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+function drawScene(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0a0c10'; ctx.fillRect(0,0,W,H);
+  drawGrid();
+  withWorldTransform(()=>{
+    drawTrack();
+    drawObstacles();
+    drawTrail();
+    drawPythonLines();
+    drawSensors();
+    drawCar();
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
+//  HUD
+// ───────────────────────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('hSpd').innerHTML=(car.speed).toFixed(1)+'<span class="hud-unit">m/s</span>';
+  document.getElementById('hAng').innerHTML=((car.angle%360+360)%360).toFixed(1)+'<span class="hud-unit">deg</span>';
+  const mousePos = getMouseWorldPos();
+  document.getElementById('hMouseX').textContent = mousePos ? `${mousePos.x.toFixed(2)} m` : '—';
+  document.getElementById('hMouseY').textContent = mousePos ? `${mousePos.y.toFixed(2)} m` : '—';
+  const steerDeg = Number.isFinite(car.steer_angle) ? car.steer_angle : 0;
+  document.getElementById('hSteer').innerHTML=(steerDeg).toFixed(1)+'<span class="hud-unit">deg</span>';
+  const maxAbsSpeed = Math.max(0.1, Math.abs(car.min_speed), Math.abs(car.max_speed));
+  document.getElementById('spdBar').style.width=(Math.abs(car.speed)/maxAbsSpeed*100)+'%';
+  const f=v=>v<0?'<span style="color:var(--muted)">—</span>':(v).toFixed(1)+'m';
+  document.getElementById('sF').innerHTML=f(sensors.front);
+  document.getElementById('sFL').innerHTML=f(sensors.front_left);
+  document.getElementById('sFR').innerHTML=f(sensors.front_right);
+  document.getElementById('sL').innerHTML=f(sensors.left);
+  document.getElementById('sR').innerHTML=f(sensors.right);
+  document.getElementById('sB').innerHTML=f(sensors.rear);
+  document.getElementById('fpsEl').textContent=fpsBuf.length;
+  document.getElementById('frameEl').textContent=frameCount;
+  document.getElementById('timeEl').textContent=simTime.toFixed(1)+'s';
+}
+
+// ───────────────────────────────────────────────────────────────
+//  MAIN LOOP + PAUSE
+// ───────────────────────────────────────────────────────────────
+let paused = false;
+let stepOnceRequested = 0;
+let timeScale = 1.0;
+let worldRuntimeSyncErrored = false;
+
+function setViewModeUI(){
+  const btn = document.getElementById('btnViewMode');
+  if(!btn) return;
+  if(viewMode === 'follow'){
+    btn.innerHTML = '🚗 <span>View: Follow</span>';
+    btn.title = 'Switch to free view';
+  } else {
+    btn.innerHTML = '🧭 <span>View: Free</span>';
+    btn.title = 'Switch to car follow view';
+  }
+}
+function setViewMode(mode){
+  const next = mode === 'follow' ? 'follow' : 'free';
+  if(viewMode === next){
+    setViewModeUI();
+    return;
+  }
+
+  if(next === 'follow'){
+    // Follow mode keeps the car centered.
+    viewPanX = 0;
+    viewPanY = 0;
+  } else {
+    // Leaving follow mode: preserve current camera position.
+    const ppm = getViewPxPerM();
+    viewPanX = -car.x * ppm;
+    viewPanY =  car.y * ppm;
+  }
+
+  viewMode = next;
+  setViewModeUI();
+}
+function toggleViewMode(){
+  setViewMode(viewMode === 'free' ? 'follow' : 'free');
+}
+
+function isTypingTarget(el = document.activeElement){
+  return !!(el && (
+    el.tagName === 'TEXTAREA' ||
+    el.tagName === 'INPUT' ||
+    el.tagName === 'SELECT' ||
+    el.isContentEditable
+  ));
+}
+function clearManualKeys(){
+  manualKeys.up = false;
+  manualKeys.down = false;
+  manualKeys.left = false;
+  manualKeys.right = false;
+}
+function setControlModeUI(){
+  const btn = document.getElementById('btnControlMode');
+  if(!btn) return;
+  if(controlMode === 'manual'){
+    btn.innerHTML = '🕹 <span>Mode: Manual</span>';
+    btn.title = 'Switch to auto mode';
+  } else {
+    btn.innerHTML = '🤖 <span>Mode: Auto</span>';
+    btn.title = 'Switch to manual mode';
+  }
+}
+function setControlMode(mode){
+  const next = mode === 'manual' ? 'manual' : 'auto';
+  if(controlMode === next){
+    setControlModeUI();
+    return;
+  }
+  controlMode = next;
+  clearManualKeys();
+  setControlModeUI();
+  if(controlMode === 'manual') logCon('info', 'Manual mode enabled: Arrow keys control the car');
+  else logCon('info', 'Auto mode enabled: Python simulate_one_step() controls the car');
+}
+function toggleControlMode(){
+  setControlMode(controlMode === 'auto' ? 'manual' : 'auto');
+}
+function setManualKeyState(code, isDown){
+  if(code === 'ArrowUp'){ manualKeys.up = isDown; return true; }
+  if(code === 'ArrowDown'){ manualKeys.down = isDown; return true; }
+  if(code === 'ArrowLeft'){ manualKeys.left = isDown; return true; }
+  if(code === 'ArrowRight'){ manualKeys.right = isDown; return true; }
+  return false;
+}
+
+function setPauseUI(){
+  const drawerBtn = document.getElementById('btnPause');
+  if(drawerBtn){
+    drawerBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    drawerBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+  }
+  const floatBtn = document.getElementById('btnPauseFloat');
+  if(floatBtn){
+    floatBtn.innerHTML = paused ? '▶ <span>Resume</span>' : '⏸ <span>Pause</span>';
+    floatBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+  }
+}
+function togglePause(){
+  paused = !paused;
+  setPauseUI();
+}
+function requestOneStep(){
+  if(!paused){
+    paused = true;
+    setPauseUI();
+  }
+  stepOnceRequested++;
+}
+document.getElementById('btnPause').addEventListener('click', togglePause);
+document.getElementById('btnPauseFloat').addEventListener('click', togglePause);
+document.getElementById('btnStep').addEventListener('click', requestOneStep);
+document.getElementById('btnStepFloat').addEventListener('click', requestOneStep);
+document.getElementById('btnRestartScenario').addEventListener('click', restartScenario);
+document.getElementById('btnControlMode').addEventListener('click', toggleControlMode);
+document.getElementById('btnViewMode').addEventListener('click', toggleViewMode);
+document.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space' && !e.repeat){
+    // ignore space when typing in editor
+    if(isTypingTarget()) return;
+    e.preventDefault();
+    togglePause();
+  }
+});
+document.addEventListener('keydown', (e)=>{
+  // ignore zoom hotkeys while typing
+  if(isTypingTarget()) return;
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+
+  if(e.key === '+' || (e.key === '=' && e.shiftKey)){
+    e.preventDefault();
+    stepZoom(1);
+  } else if(e.key === '-' || e.key === '_'){
+    e.preventDefault();
+    stepZoom(-1);
+  }
+});
+document.addEventListener('keydown', (e)=>{
+  if(controlMode !== 'manual') return;
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  if(isTypingTarget()) return;
+  if(setManualKeyState(e.code, true)) e.preventDefault();
+});
+document.addEventListener('keyup', (e)=>{
+  if(controlMode !== 'manual') return;
+  if(setManualKeyState(e.code, false)) e.preventDefault();
+});
+
+canvas.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  stepZoom(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+canvas.addEventListener('mouseenter', (e)=>setMouseCanvasFromClient(e.clientX, e.clientY));
+canvas.addEventListener('mousemove', (e)=>setMouseCanvasFromClient(e.clientX, e.clientY));
+canvas.addEventListener('mouseleave', ()=>{ mouseCanvasState.inside = false; });
+
+let panning = false;
+let panLastX = 0;
+let panLastY = 0;
+
+canvas.addEventListener('mousedown', (e)=>{
+  if(e.button !== 0) return;
+  if(viewMode !== 'free') return;
+  panning = true;
+  panLastX = e.clientX;
+  panLastY = e.clientY;
+  e.preventDefault();
+});
+
+window.addEventListener('mousemove', (e)=>{
+  setMouseCanvasFromClient(e.clientX, e.clientY);
+  if(!panning) return;
+  const dx = e.clientX - panLastX;
+  const dy = e.clientY - panLastY;
+  panLastX = e.clientX;
+  panLastY = e.clientY;
+  viewPanX += dx;
+  viewPanY += dy;
+});
+
+function endPan(){
+  if(!panning) return;
+  panning = false;
+}
+window.addEventListener('mouseup', endPan);
+window.addEventListener('blur', ()=>{
+  endPan();
+  clearManualKeys();
+  mouseCanvasState.inside = false;
+});
+
+function tick(ts){
+  requestAnimationFrame(tick);
+  if(lastTs === null) lastTs = ts;
+  const rawDt = Math.min(0.05, (ts-lastTs)/1000);
+  lastTs = ts;
+
+  const shouldStep = !paused || stepOnceRequested > 0;
+  if(!shouldStep){
+    drawScene(); updateHUD();
+    return;
+  }
+  if(paused && stepOnceRequested > 0){
+    stepOnceRequested--;
+  }
+
+  // Refresh per-step debug draws at frame start so the latest step remains visible while paused.
+  clearPythonDrawLines();
+
+  const dt = rawDt * timeScale;
+  simTime += dt;
+  frameCount++;
+
+  fpsBuf.push(1/rawDt);
+  if(fpsBuf.length>30) fpsBuf.shift();
+
+  // Reset inputs for this frame; Python (auto) or keyboard (manual) sets new commands.
+  car._reset();
+  if(controlMode === 'manual'){
+    car._throttle = (manualKeys.up && !manualKeys.down) ? 1 : 0;
+    car._brake = manualKeys.down ? 1 : 0;
+    car._steer = (manualKeys.left ? -1 : 0) + (manualKeys.right ? 1 : 0);
+  }
+
+  // Sync python objects (state in meters)
+  let physicsSteppedInPython = false;
+  if(pyCar){
+    pyCar.x = car.x;  pyCar.y = car.y;
+    pyCar.angle = car.angle;
+    pyCar.speed = car.speed;
+    pyCar.min_speed = car.min_speed;
+    pyCar.max_speed = car.max_speed;
+    pyCar.length = car.length;
+    pyCar.width = car.width;
+    pyCar.wheelbase = car.wheelbase;
+    pyCar.min_accel = carModelConfig.min_accel;
+    pyCar.max_accel = carModelConfig.max_accel;
+    pyCar.min_steering_angle_deg = carModelConfig.min_steering_angle_deg;
+    pyCar.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
+    pyCar.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
+    pyCar.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
+    pyCar.steer_angle = car.steer_angle;
+    pyCar.vx = car.vx; pyCar.vy = car.vy;
+    pyCar.dt = dt;
+    pyCar.accel_force = car._accelForce;
+    pyCar.brake_force = car._brakeForce;
+    pyCar.friction = car._friction;
+    pyCar._did_simulate_step = false;
+
+    pyCar.model = activeModel;
+    pyCar.control_mode = controlMode;
+
+    pySensors.front = sensors.front; pySensors.rear = sensors.rear;
+    pySensors.left = sensors.left;   pySensors.right = sensors.right;
+    pySensors.front_left = sensors.front_left; pySensors.front_right = sensors.front_right;
+    pySensors.lidar = sensors.lidar;
+
+    let worldArg = pyWorldModel;
+    if(pySetWorldRuntimeFn){
+      try {
+        const runtimeRoad = buildWorldRoadDataPayload();
+        pySetWorldRuntimeFn(
+          frameCount,
+          dt,
+          runtimeRoad.width,
+          runtimeRoad.path,
+          track.closed !== false
+        );
+        worldRuntimeSyncErrored = false;
+      } catch(e){
+        if(!worldRuntimeSyncErrored){
+          logCon('err', 'world_model runtime sync failed: ' + e);
+          worldRuntimeSyncErrored = true;
+        }
+      }
+    } else if(worldArg){
+      worldArg.frame_id = frameCount;
+      worldArg.dt = dt;
+    }
+    if(!worldArg){
+      // Fallback object keeps auto mode functional even if Python world proxy is unavailable.
+      worldArg = {
+        frame_id: frameCount,
+        dt,
+        scenario: {
+          loop: track.closed !== false,
+          road_data: buildWorldRoadDataPayload(),
+          obstacles: buildWorldObstaclesPayload(),
+        },
+      };
+    }
+
+    if(pyUpdateFn){
+      try {
+        pyUpdateFn(pyCar, pySensors, worldArg);
+        if(pyCar._did_simulate_step && controlMode !== 'manual'){
+          physicsSteppedInPython = true;
+          syncPyCarStateToJsCar();
+          pyCar._did_simulate_step = false;
+        } else if(pyCar._did_simulate_step){
+          // In manual mode, keyboard control remains authoritative.
+          pyCar._did_simulate_step = false;
+        }
+        if(controlMode !== 'manual'){
+          syncCarInputs();
+        }
+      } catch(e){
+        logCon('err', `${pyStepFnName}() error: ` + e);
+      }
+    }
+    if(controlMode === 'manual'){
+      pyCar.throttle = car._throttle;
+      pyCar.brake = car._brake;
+      pyCar.steer = car._steer;
+    }
+  }
+
+  // Run physics unless Python already stepped via car.simulate_one_step().
+  if(!physicsSteppedInPython){
+    (PHYSICS_MODELS[activeModel] || PHYSICS_MODELS.kinematic)(dt);
+  }
+
+  // Sensors
+  updateSensors();
+
+  // Trail (meters)
+  car.trail.push({x:car.x, y:car.y});
+  if(car.trail.length>130) car.trail.shift();
+
+  // Flush partial Python stdout/stderr chunks each frame.
+  flushPyStreams();
+
+  drawScene();
+  updateHUD();
+}
+requestAnimationFrame(tick);
+
+// ───────────────────────────────────────────────────────────────
+//  Drawer UI
+// ───────────────────────────────────────────────────────────────
+const drawer = document.getElementById('drawer');
+const btnGear = document.getElementById('btnGear');
+const btnDrawerClose = document.getElementById('btnDrawerClose');
+function setDrawerOpen(open){
+  drawer.classList.toggle('open', !!open);
+  btnGear.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+setDrawerOpen(drawer.classList.contains('open'));
+btnGear.addEventListener('click', ()=>setDrawerOpen(!drawer.classList.contains('open')));
+btnDrawerClose.addEventListener('click', ()=>setDrawerOpen(false));
+
+// Controls
+const timeScaleEl = document.getElementById('timeScale');
+const timeScaleVal = document.getElementById('timeScaleVal');
+timeScaleEl.addEventListener('input', ()=>{
+  timeScale = +timeScaleEl.value;
+  timeScaleVal.textContent = timeScale.toFixed(1);
+});
+
+const frictionEl = document.getElementById('friction');
+const frictionVal = document.getElementById('frictionVal');
+frictionEl.addEventListener('input', ()=>{
+  car._friction = +frictionEl.value;
+  frictionVal.textContent = car._friction.toFixed(2);
+});
+
+const accelEl = document.getElementById('accel');
+const accelVal = document.getElementById('accelVal');
+carModelConfig.min_accel = +accelEl.min;
+carModelConfig.max_accel = +accelEl.max;
+accelEl.addEventListener('input', ()=>{
+  car._accelForce = +accelEl.value;
+  accelVal.textContent = car._accelForce.toFixed(1);
+  syncVehicleConfigToPython();
+});
+
+const brakeEl = document.getElementById('brake');
+const brakeVal = document.getElementById('brakeVal');
+brakeEl.addEventListener('input', ()=>{
+  car._brakeForce = +brakeEl.value;
+  brakeVal.textContent = car._brakeForce.toFixed(1);
+});
+
+const lidarRangeEl = document.getElementById('lidarRange');
+const lidarRangeVal = document.getElementById('lidarRangeVal');
+const lidarBeamsEl = document.getElementById('lidarBeams');
+const lidarBeamsVal = document.getElementById('lidarBeamsVal');
+
+function syncLidarSettingsUI(){
+  if(lidarRangeEl){
+    lidarRangeEl.value = String(Math.round(LIDAR_MAX_RANGE_M));
+  }
+  if(lidarRangeVal){
+    lidarRangeVal.textContent = String(Math.round(LIDAR_MAX_RANGE_M));
+  }
+  if(lidarBeamsEl){
+    lidarBeamsEl.value = String(Math.round(LIDAR_BEAM_COUNT));
+  }
+  if(lidarBeamsVal){
+    lidarBeamsVal.textContent = String(Math.round(LIDAR_BEAM_COUNT));
+  }
+}
+
+if(lidarRangeEl){
+  lidarRangeEl.addEventListener('input', ()=>{
+    LIDAR_MAX_RANGE_M = Math.max(1, +lidarRangeEl.value || 22);
+    syncLidarSettingsUI();
+  });
+}
+if(lidarBeamsEl){
+  lidarBeamsEl.addEventListener('input', ()=>{
+    LIDAR_BEAM_COUNT = Math.max(1, Math.round(+lidarBeamsEl.value || 72));
+    syncLidarSettingsUI();
+  });
+}
+
+const vehLengthEl = document.getElementById('vehLength');
+const vehLengthVal = document.getElementById('vehLengthVal');
+const vehWidthEl = document.getElementById('vehWidth');
+const vehWidthVal = document.getElementById('vehWidthVal');
+const vehWheelbaseEl = document.getElementById('vehWheelbase');
+const vehWheelbaseVal = document.getElementById('vehWheelbaseVal');
+const cfgMinSpeedEl = document.getElementById('cfgMinSpeed');
+const cfgMinSpeedVal = document.getElementById('cfgMinSpeedVal');
+const cfgMaxSpeedEl = document.getElementById('cfgMaxSpeed');
+const cfgMaxSpeedVal = document.getElementById('cfgMaxSpeedVal');
+const cfgMinAccelEl = document.getElementById('cfgMinAccel');
+const cfgMinAccelVal = document.getElementById('cfgMinAccelVal');
+const cfgMaxAccelEl = document.getElementById('cfgMaxAccel');
+const cfgMaxAccelVal = document.getElementById('cfgMaxAccelVal');
+const cfgMinSteerAngEl = document.getElementById('cfgMinSteerAng');
+const cfgMinSteerAngVal = document.getElementById('cfgMinSteerAngVal');
+const cfgMaxSteerAngEl = document.getElementById('cfgMaxSteerAng');
+const cfgMaxSteerAngVal = document.getElementById('cfgMaxSteerAngVal');
+const cfgMinSteerSpdEl = document.getElementById('cfgMinSteerSpd');
+const cfgMinSteerSpdVal = document.getElementById('cfgMinSteerSpdVal');
+const cfgMaxSteerSpdEl = document.getElementById('cfgMaxSteerSpd');
+const cfgMaxSteerSpdVal = document.getElementById('cfgMaxSteerSpdVal');
+
+carModelConfig.min_speed = +cfgMinSpeedEl.value;
+carModelConfig.max_speed = +cfgMaxSpeedEl.value;
+carModelConfig.min_accel = +cfgMinAccelEl.value;
+carModelConfig.max_accel = +cfgMaxAccelEl.value;
+carModelConfig.min_steering_angle_deg = +cfgMinSteerAngEl.value;
+carModelConfig.max_steering_angle_deg = +cfgMaxSteerAngEl.value;
+carModelConfig.min_steering_speed_deg_s = +cfgMinSteerSpdEl.value;
+carModelConfig.max_steering_speed_deg_s = +cfgMaxSteerSpdEl.value;
+car.min_speed = carModelConfig.min_speed;
+car.max_speed = carModelConfig.max_speed;
+
+function refreshWheelbaseBounds(){
+  const minWb = 1.2;
+  const maxWb = Math.max(minWb, car.length - 0.4);
+  vehWheelbaseEl.max = maxWb.toFixed(2);
+  car.wheelbase = clampRange(car.wheelbase, minWb, maxWb);
+  vehWheelbaseEl.value = car.wheelbase.toFixed(2);
+  vehWheelbaseVal.textContent = car.wheelbase.toFixed(2);
+}
+
+function syncCarLimitUI(){
+  cfgMinSpeedEl.value = carModelConfig.min_speed.toFixed(1);
+  cfgMinSpeedVal.textContent = carModelConfig.min_speed.toFixed(1);
+  cfgMaxSpeedEl.value = carModelConfig.max_speed.toFixed(1);
+  cfgMaxSpeedVal.textContent = carModelConfig.max_speed.toFixed(1);
+
+  cfgMinAccelEl.value = carModelConfig.min_accel.toFixed(1);
+  cfgMinAccelVal.textContent = carModelConfig.min_accel.toFixed(1);
+  cfgMaxAccelEl.value = carModelConfig.max_accel.toFixed(1);
+  cfgMaxAccelVal.textContent = carModelConfig.max_accel.toFixed(1);
+
+  cfgMinSteerAngEl.value = carModelConfig.min_steering_angle_deg.toFixed(0);
+  cfgMinSteerAngVal.textContent = carModelConfig.min_steering_angle_deg.toFixed(0);
+  cfgMaxSteerAngEl.value = carModelConfig.max_steering_angle_deg.toFixed(0);
+  cfgMaxSteerAngVal.textContent = carModelConfig.max_steering_angle_deg.toFixed(0);
+
+  cfgMinSteerSpdEl.value = carModelConfig.min_steering_speed_deg_s.toFixed(0);
+  cfgMinSteerSpdVal.textContent = carModelConfig.min_steering_speed_deg_s.toFixed(0);
+  cfgMaxSteerSpdEl.value = carModelConfig.max_steering_speed_deg_s.toFixed(0);
+  cfgMaxSteerSpdVal.textContent = carModelConfig.max_steering_speed_deg_s.toFixed(0);
+}
+
+function syncVehicleConfigUI(){
+  vehLengthEl.value = car.length.toFixed(1);
+  vehWidthEl.value = car.width.toFixed(2);
+  vehLengthVal.textContent = car.length.toFixed(1);
+  vehWidthVal.textContent = car.width.toFixed(2);
+  refreshWheelbaseBounds();
+  syncCarLimitUI();
+  syncVehicleConfigToPython();
+}
+
+function syncVehicleConfigToPython(){
+  carModelConfig.length = car.length;
+  carModelConfig.width = car.width;
+  carModelConfig.wheelbase = car.wheelbase;
+  carModelConfig.min_speed = car.min_speed;
+  carModelConfig.max_speed = car.max_speed;
+
+  if(pyCar){
+    pyCar.length = car.length;
+    pyCar.width = car.width;
+    pyCar.wheelbase = car.wheelbase;
+    pyCar.min_speed = car.min_speed;
+    pyCar.max_speed = car.max_speed;
+    pyCar.min_accel = carModelConfig.min_accel;
+    pyCar.max_accel = carModelConfig.max_accel;
+    pyCar.min_steering_angle_deg = carModelConfig.min_steering_angle_deg;
+    pyCar.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
+    pyCar.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
+    pyCar.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
+  }
+
+}
+
+vehLengthEl.addEventListener('input', ()=>{
+  car.length = +vehLengthEl.value;
+  vehLengthVal.textContent = car.length.toFixed(1);
+  refreshWheelbaseBounds();
+  syncVehicleConfigToPython();
+});
+vehWidthEl.addEventListener('input', ()=>{
+  car.width = +vehWidthEl.value;
+  vehWidthVal.textContent = car.width.toFixed(2);
+  syncVehicleConfigToPython();
+});
+vehWheelbaseEl.addEventListener('input', ()=>{
+  car.wheelbase = +vehWheelbaseEl.value;
+  refreshWheelbaseBounds();
+  syncVehicleConfigToPython();
+});
+
+function applyCarLimitsFromUI(){
+  applyCarConfigObject({
+    min_speed: +cfgMinSpeedEl.value,
+    max_speed: +cfgMaxSpeedEl.value,
+    min_accel: +cfgMinAccelEl.value,
+    max_accel: +cfgMaxAccelEl.value,
+    min_steering_angle_deg: +cfgMinSteerAngEl.value,
+    max_steering_angle_deg: +cfgMaxSteerAngEl.value,
+    min_steering_speed_deg_s: +cfgMinSteerSpdEl.value,
+    max_steering_speed_deg_s: +cfgMaxSteerSpdEl.value,
+  }, 'UI settings', { log: false });
+}
+[cfgMinSpeedEl, cfgMaxSpeedEl, cfgMinAccelEl, cfgMaxAccelEl, cfgMinSteerAngEl, cfgMaxSteerAngEl, cfgMinSteerSpdEl, cfgMaxSteerSpdEl]
+  .forEach(el => {
+    el.addEventListener('change', applyCarLimitsFromUI);
+    el.addEventListener('keydown', (e)=>{
+      if(e.key !== 'Enter') return;
+      e.preventDefault();
+      applyCarLimitsFromUI();
+      el.blur();
+    });
+  });
+
+const zoomScaleEl = document.getElementById('zoomScale');
+zoomScaleEl.addEventListener('input', ()=>{
+  setViewZoom(+zoomScaleEl.value);
+});
+document.getElementById('btnZoomIn').addEventListener('click', ()=>stepZoom(1));
+document.getElementById('btnZoomOut').addEventListener('click', ()=>stepZoom(-1));
+
+function setupToggleChip(id, get, set){
+  const el = document.getElementById(id);
+  el.addEventListener('click', ()=>{
+    const v = !get();
+    set(v);
+    el.classList.toggle('active', v);
+    el.textContent = v ? 'On' : 'Off';
+  });
+}
+setupToggleChip('chipGrid', ()=>showGrid, v=>showGrid=v);
+setupToggleChip('chipSensors', ()=>showSensors, v=>showSensors=v);
+setupToggleChip('chipTrail', ()=>showTrail, v=>showTrail=v);
+setupToggleChip('chipDebugDraw', ()=>showDebugDraw, v=>showDebugDraw=v);
+
+syncVehicleConfigUI();
+setViewModeUI();
+setControlModeUI();
+setViewZoom(1);
+setPauseUI();
+syncLidarSettingsUI();
+</script>
+</body>
+</html>

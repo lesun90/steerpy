@@ -34,13 +34,14 @@
 }
 </script>
 <script src="assets/vendor/pyodide/v0.25.1/full/pyodide.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js'"></script>
-<link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/lib/codemirror.min.css">
-<link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/theme/material-darker.min.css">
+<link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/lib/codemirror.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.css'">
+<link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/theme/material-darker.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/material-darker.min.css'">
 <script src="assets/vendor/codemirror/5.65.20/lib/codemirror.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.js'"></script>
 <script src="assets/vendor/codemirror/5.65.20/mode/python/python.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/python/python.min.js'"></script>
 <script src="assets/vendor/codemirror/5.65.20/addon/edit/matchbrackets.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/matchbrackets.min.js'"></script>
 <script src="assets/vendor/codemirror/5.65.20/addon/edit/closebrackets.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/closebrackets.min.js'"></script>
 <script src="assets/vendor/codemirror/5.65.20/addon/selection/active-line.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.min.js'"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 /* ── Reset & Base ── */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -51,7 +52,7 @@
   --text:#e2e8f0;--muted:#4a5568;
 }
 body{
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
   background:var(--bg);color:var(--text);
   height:100vh;display:flex;flex-direction:column;overflow:hidden;
 }
@@ -62,7 +63,7 @@ body{
   padding:0 20px;height:46px;flex-shrink:0;
   border-bottom:1px solid var(--border);background:var(--panel);
 }
-.logo{font-family:"Trebuchet MS","Segoe UI",sans-serif;font-weight:800;font-size:17px;color:var(--accent);letter-spacing:-.3px}
+.logo{font-family:'Syne',"Trebuchet MS","Segoe UI",sans-serif;font-weight:800;font-size:17px;color:var(--accent);letter-spacing:-.3px}
 .logo span{color:var(--text);font-weight:400}
 .hdivider{width:1px;height:18px;background:var(--border)}
 .header-sub{font-size:11px;color:var(--muted)}
@@ -1431,6 +1432,96 @@ const PY_EDITOR_IDS = ['editor','plannerEditor','controllerEditor','modelEditor'
 const pyCodeEditors = Object.create(null);
 let codeMirrorReady = false;
 
+function ensureStyleFallback(localHref, cdnHref){
+  const key = `link[data-fallback-key="${localHref}"]`;
+  if(document.querySelector(key)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = localHref;
+  link.dataset.fallbackKey = localHref;
+  link.onerror = () => {
+    link.onerror = null;
+    link.href = cdnHref;
+  };
+  document.head.appendChild(link);
+}
+
+function loadScriptCandidate(src){
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-fallback-key="${src}"]`);
+    if(existing){
+      if(existing.dataset.ready === '1') return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Failed to load ' + src)), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.dataset.fallbackKey = src;
+    script.onload = () => {
+      script.dataset.ready = '1';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Failed to load ' + src));
+    document.head.appendChild(script);
+  });
+}
+
+async function loadScriptWithFallback(localSrc, cdnSrc, isReady){
+  if(isReady()) return true;
+  try {
+    await loadScriptCandidate(localSrc);
+    if(isReady()) return true;
+  } catch {}
+  try {
+    await loadScriptCandidate(cdnSrc);
+    if(isReady()) return true;
+  } catch {}
+  return isReady();
+}
+
+async function ensureCodeMirrorAssets(){
+  ensureStyleFallback(
+    'assets/vendor/codemirror/5.65.20/lib/codemirror.min.css',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.css'
+  );
+  ensureStyleFallback(
+    'assets/vendor/codemirror/5.65.20/theme/material-darker.min.css',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/material-darker.min.css'
+  );
+
+  const cmOk = await loadScriptWithFallback(
+    'assets/vendor/codemirror/5.65.20/lib/codemirror.min.js',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.js',
+    () => typeof CodeMirror === 'function'
+  );
+  if(!cmOk) return false;
+
+  await loadScriptWithFallback(
+    'assets/vendor/codemirror/5.65.20/mode/python/python.min.js',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/python/python.min.js',
+    () => !!(window.CodeMirror && CodeMirror.modes && CodeMirror.modes.python)
+  );
+  await loadScriptWithFallback(
+    'assets/vendor/codemirror/5.65.20/addon/edit/matchbrackets.min.js',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/matchbrackets.min.js',
+    () => true
+  );
+  await loadScriptWithFallback(
+    'assets/vendor/codemirror/5.65.20/addon/edit/closebrackets.min.js',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/closebrackets.min.js',
+    () => true
+  );
+  await loadScriptWithFallback(
+    'assets/vendor/codemirror/5.65.20/addon/selection/active-line.min.js',
+    'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.min.js',
+    () => true
+  );
+
+  return true;
+}
+
 function refreshCodeEditor(id){
   const cm = pyCodeEditors[id];
   if(cm) cm.refresh();
@@ -1439,8 +1530,9 @@ function refreshAllCodeEditors(){
   if(!codeMirrorReady) return;
   for(const id of PY_EDITOR_IDS) refreshCodeEditor(id);
 }
-function initCodeMirrorEditors(){
+async function initCodeMirrorEditors(){
   if(codeMirrorReady) return;
+  await ensureCodeMirrorAssets();
   if(typeof CodeMirror !== 'function'){
     logCon('err', 'CodeMirror failed to load; using plain textarea editor');
     return;

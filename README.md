@@ -9,12 +9,12 @@ It provides:
 - Scenario editing and random generation (`world_config.py`)
 - Real-time visualization, sensors (including LiDAR), and console logs
 
-## Motivation
+## Why SteerPy Exists
 
-Learning robotics can feel like a side quest in installation: ROS setup, environments, dependencies, and tooling before your first real experiment.
+Learning robotics often starts with a setup maze that burns your time and motivation: ROS installs break, dependencies conflict, environments drift, and you can spend days debugging tools before writing a single useful line.
 
-SteerPy skips that friction. Open the browser, write Python, and see the behavior immediately. No heavy robotics stack required.  
-The mission is simple: make autonomous driving learning fun and practical, with a focus on planners and controllers.
+SteerPy cuts straight to the fun part. Open the browser, write Python, press run, and watch the car react immediately.  
+The goal is simple: make autonomous driving practice playful, practical, and centered on planners and controllers.
 
 ## Source Layout
 
@@ -23,31 +23,58 @@ The mission is simple: make autonomous driving learning fun and practical, with 
 - `src/car_models/`: physics model scripts (`kinematic.py`, `bicycle.py`, `ackermann.py`, `drift.py`, `custom.py`)
 - `src/sample_config/`: world/config samples (`world_config.py`, `car_config.py`)
 - `src/core/`: shared simulator Python data types (`Car`, `Sensors`, `WorldModel`)
-- `src/runtime/`: Pyodide runtime helper scripts loaded by `steerpy.html`
+- `src/runtime/`: Pyodide runtime helper scripts loaded by `index.html`
 
 ## Requirements
 
 - A modern browser (Chrome/Edge/Firefox)
-- Internet access (Pyodide and editor assets are loaded from CDN)
 - A local static web server (recommended)
+- Internet access is optional, only needed if you want to fetch/update to the latest web assets
 
 ## Quick Start
 
-1. Open a terminal in this project folder.
-2. Start a local server:
+1. Jump straight in and play in your browser:
+
+```text
+https://steerpy.withduong.com
+```
+
+2. Want a guided path? Follow the series at:
+
+```text
+https://robotic.withduong.com
+```
+
+3. Prefer local mode? Clone this repo, then run:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-3. Open:
+4. Open:
 
 ```text
-http://localhost:8000/steerpy.html
+http://localhost:8000/index.html
 ```
 
-4. Wait for `Pyodide Python 3.11 ready` in the in-app console.
-5. Start tweaking `planner.py` and `controller.py`, then watch the car respond.
+5. Wait for `Pyodide Python 3.11 ready` in the in-app console.
+6. Tweak `planner.py` and `controller.py`, press run, and make the car do your bidding.
+
+## Fully Offline Mode
+
+To run with zero CDN/network dependency, vendor web assets once:
+
+```bash
+./scripts/vendor_web_assets.sh
+```
+
+Then serve the project as usual:
+
+```bash
+python3 -m http.server 8000
+```
+
+`index.html` will load local assets from `assets/vendor/...`.
 
 ## Python UI (Desktop)
 

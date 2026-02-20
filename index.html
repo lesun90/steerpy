@@ -69,6 +69,18 @@ body{
 .status-bar{display:flex;gap:14px;margin-left:auto;align-items:center;font-size:11px;color:var(--muted)}
 .status-item{display:flex;align-items:center;gap:5px}
 .status-val{color:var(--accent);font-weight:500}
+.repo-link{
+  display:inline-flex;align-items:center;
+  border:1px solid var(--border);
+  padding:4px 8px;border-radius:6px;
+  color:var(--text);text-decoration:none;
+  transition:all .15s ease;
+}
+.repo-link:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  text-decoration:none;
+}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
 .dot.loading{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:blink .8s infinite}
 .dot.err{background:var(--red);box-shadow:0 0 6px var(--red)}
@@ -445,6 +457,7 @@ a:hover{text-decoration:underline}
     <div class="header-sub">World playground</div>
 
     <div class="status-bar">
+      <a class="repo-link" href="https://github.com/lesun90/steerpy" target="_blank" rel="noopener noreferrer">GitHub</a>
       <div class="status-item"><span id="pyDot" class="dot loading"></span><span>Pyodide</span> <span class="status-val" id="pyStatus">Loading…</span></div>
       <div class="status-item"><span>FPS</span> <span class="status-val" id="fpsEl">0</span></div>
       <div class="status-item"><span>Frame</span> <span class="status-val" id="frameEl">0</span></div>

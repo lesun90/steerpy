@@ -24,6 +24,7 @@ The goal is simple: make autonomous driving practice playful, practical, and cen
 - `src/sample_config/`: world/config samples (`world_config.py`, `car_config.py`)
 - `src/core/`: shared simulator Python data types (`Car`, `Sensors`, `WorldModel`)
 - `src/runtime/`: Pyodide runtime helper scripts loaded by `index.html`
+- `tools/`: desktop utilities (`steerpy_py_ui.py` — native Python viewer with auto-reload, no browser needed)
 
 ## Requirements
 
@@ -60,32 +61,7 @@ http://localhost:8000/index.html
 5. Wait for `Pyodide Python 3.11 ready` in the in-app console.
 6. Tweak `planner.py` and `controller.py`, press run, and make the car do your bidding.
 
-## Fully Offline Mode
-
-To run with zero CDN/network dependency, vendor web assets once:
-
-```bash
-./scripts/vendor_web_assets.sh
-```
-
-Then serve the project as usual:
-
-```bash
-python3 -m http.server 8000
-```
-
-`index.html` will load local assets from `assets/vendor/...`.
-
-## Python UI (Desktop)
-
-You can run a similar UI in pure Python (`tkinter`):
-
-```bash
-python3 steerpy_py_ui.py
-```
-
 Features:
-- No built-in code editor (edit files in your IDE).
 - Auto-reload on save for:
   - `src/simulation_apis/simulate_one_step.py`
   - `src/modules/planner/planner.py`
@@ -109,7 +85,7 @@ Features:
 - `simulate_one_step.py`: main per-frame entry point (`simulate_one_step(car, world_model)`).
 - `planner.py`: path/trajectory generation.
 - `controller.py`: steering/throttle from trajectory.
-- `car_models.py`: vehicle dynamics model (`step(state, dt)`), with presets.
+- `MODEL` tab (`src/car_models/*.py`): vehicle dynamics model (`step(state, dt)`), with presets.
 - `car_config.py`: shared vehicle limits and dimensions.
 - `world_config.py`: road, obstacles, and optional car initial state.
 

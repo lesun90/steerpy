@@ -330,6 +330,19 @@ canvas#sim{width:100%;height:100%;display:block}
 /* Model chip in HUD — pointer-events:all to allow clicks */
 .hud-card.interactive{pointer-events:all}
 
+/* ── Speed Plot Panel ── */
+/* ── Speed HUD card with inline plot ── */
+.hud-spd-row{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.speed-plot-win{display:flex;align-items:center;gap:4px;pointer-events:all}
+.speed-plot-win label{font-size:8px;color:var(--muted)}
+.speed-plot-win input[type=number]{
+  width:32px;background:#0b0f18;border:1px solid var(--border);
+  border-radius:4px;color:var(--muted);padding:1px 4px;
+  font-size:8px;font-family:'JetBrains Mono',monospace;text-align:right;
+}
+.speed-plot-win input[type=number]:focus{outline:none;border-color:var(--accent);color:var(--text)}
+.hud-spd-canvas{display:block;margin-top:7px;border-radius:3px;overflow:hidden}
+
 /* Canvas watermark */
 .viz-watermark{
   position:absolute;
@@ -884,17 +897,33 @@ a:hover{text-decoration:underline}
 
         <div class="hud">
           <div class="hud-card">
-            <div class="hud-lbl">Speed</div>
-            <div class="hud-val" id="hSpd">0<span class="hud-unit">m/s</span></div>
-            <div class="bar-wrap"><div class="bar-fill" id="spdBar" style="width:0%"></div></div>
-          </div>
-          <div class="hud-card">
             <div class="hud-lbl">Heading</div>
             <div class="hud-val" id="hAng">0.0<span class="hud-unit">deg</span></div>
           </div>
           <div class="hud-card">
-            <div class="hud-lbl">Steer</div>
+            <div class="hud-spd-row">
+              <div class="hud-lbl">Speed</div>
+              <div class="speed-plot-win">
+                <label for="speedPlotWin">last</label>
+                <input type="number" id="speedPlotWin" min="1" max="120" value="5" step="1">
+                <label>s</label>
+              </div>
+            </div>
+            <div class="hud-val" id="hSpd">0<span class="hud-unit">m/s</span></div>
+            <div class="bar-wrap"><div class="bar-fill" id="spdBar" style="width:0%"></div></div>
+            <canvas id="speedPlot" class="hud-spd-canvas" width="148" height="48"></canvas>
+          </div>
+          <div class="hud-card">
+            <div class="hud-spd-row">
+              <div class="hud-lbl">Steer</div>
+              <div class="speed-plot-win">
+                <label for="steerPlotWin">last</label>
+                <input type="number" id="steerPlotWin" min="1" max="120" value="5" step="1">
+                <label>s</label>
+              </div>
+            </div>
             <div class="hud-val" id="hSteer">0.0<span class="hud-unit">deg</span></div>
+            <canvas id="steerPlot" class="hud-spd-canvas" width="148" height="48"></canvas>
           </div>
           <div class="hud-card">
             <div class="hud-lbl">Sensors</div>
@@ -919,6 +948,7 @@ a:hover{text-decoration:underline}
             </div>
           </div>
         </div>
+
       </div>
 
       <div class="console">
@@ -1151,6 +1181,10 @@ const canvas = document.getElementById('sim');
 const ctx = canvas.getContext('2d');
 let W = 800, H = 600;
 let frameCount = 0, simTime = 0, lastTs = null, fpsBuf = [];
+let speedHistory = [];   // [{t, v}] — speed samples for the realtime plot
+let plotWindowSec = 5;   // how many seconds to show (customizable via input)
+let steerHistory = [];   // [{t, v}] — steer angle samples for the realtime plot
+let steerPlotWindowSec = 5;
 let trackPts = [], obstacles = [];
 
 // ───────────────────────────────────────────────────────────────
@@ -2714,6 +2748,8 @@ function applyWorldData(waypointsRaw, pathRaw, obstaclesRaw, roadWidth, closed, 
   car.vx = Math.cos(headRad) * car.speed;
   car.vy = Math.sin(headRad) * car.speed;
   car.trail = [];
+  speedHistory = [];
+  steerHistory = [];
 
   syncWorldScenarioToPython();
 
@@ -3458,6 +3494,159 @@ function updateHUD(){
 }
 
 // ───────────────────────────────────────────────────────────────
+//  SPEED PLOT
+// ───────────────────────────────────────────────────────────────
+function updateSpeedPlot(){
+  const canvas = document.getElementById('speedPlot');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Trim samples older than the window
+  const tMin = simTime - plotWindowSec;
+  while(speedHistory.length > 0 && speedHistory[0].t < tMin) speedHistory.shift();
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Zero / baseline guide line
+  const drawZeroLine = (yFrac) => {
+    const zy = H - yFrac * H;
+    if(zy < 0 || zy > H) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(0, zy); ctx.lineTo(W, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  };
+
+  // Fixed Y range from car limits
+  const vLo = car.min_speed, vHi = car.max_speed;
+  const vRange = vHi - vLo;
+  const toY = v => H - ((v - vLo) / vRange) * H;
+  const tEnd = simTime;
+
+  drawZeroLine((0 - vLo) / vRange);
+
+  if(speedHistory.length < 2) return;
+
+  // Fill under curve
+  ctx.beginPath();
+  for(let i = 0; i < speedHistory.length; i++){
+    const s = speedHistory[i];
+    const px = ((s.t - (tEnd - plotWindowSec)) / plotWindowSec) * W;
+    const py = toY(s.v);
+    if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  const lastPx = ((speedHistory[speedHistory.length-1].t - (tEnd - plotWindowSec)) / plotWindowSec) * W;
+  const firstPx = ((speedHistory[0].t - (tEnd - plotWindowSec)) / plotWindowSec) * W;
+  ctx.lineTo(lastPx, H); ctx.lineTo(firstPx, H); ctx.closePath();
+  ctx.fillStyle = 'rgba(0,229,255,0.07)';
+  ctx.fill();
+
+  // Plot line
+  ctx.beginPath();
+  for(let i = 0; i < speedHistory.length; i++){
+    const s = speedHistory[i];
+    const px = ((s.t - (tEnd - plotWindowSec)) / plotWindowSec) * W;
+    const py = toY(s.v);
+    if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'rgba(0,229,255,0.35)';
+  ctx.shadowBlur = 5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Value labels
+  const last = speedHistory[speedHistory.length - 1];
+  ctx.font = '9px "JetBrains Mono",monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillText(last ? last.v.toFixed(1) : '0.0', W - 2, 10);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.textAlign = 'left';
+  ctx.font = '8px "JetBrains Mono",monospace';
+  ctx.fillText(vHi.toFixed(0), 2, 9);
+  ctx.fillText(vLo.toFixed(0), 2, H - 2);
+}
+
+function updateSteerPlot(){
+  const canvas = document.getElementById('steerPlot');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const tMin = simTime - steerPlotWindowSec;
+  while(steerHistory.length > 0 && steerHistory[0].t < tMin) steerHistory.shift();
+
+  ctx.clearRect(0, 0, W, H);
+
+  const drawZeroLine = (yFrac) => {
+    const zy = H - yFrac * H;
+    if(zy < 0 || zy > H) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(0, zy); ctx.lineTo(W, zy); ctx.stroke();
+    ctx.setLineDash([]);
+  };
+
+  // Fixed Y range from car steering limits
+  const vLo = carModelConfig.min_steering_angle_deg;
+  const vHi = carModelConfig.max_steering_angle_deg;
+  const vRange = vHi - vLo;
+  const toY = v => H - ((v - vLo) / vRange) * H;
+  const tEnd = simTime;
+
+  drawZeroLine((0 - vLo) / vRange);
+
+  if(steerHistory.length < 2) return;
+
+  // Fill
+  ctx.beginPath();
+  for(let i = 0; i < steerHistory.length; i++){
+    const s = steerHistory[i];
+    const px = ((s.t - (tEnd - steerPlotWindowSec)) / steerPlotWindowSec) * W;
+    if(i === 0) ctx.moveTo(px, toY(s.v)); else ctx.lineTo(px, toY(s.v));
+  }
+  const lastPx = ((steerHistory[steerHistory.length-1].t - (tEnd - steerPlotWindowSec)) / steerPlotWindowSec) * W;
+  const firstPx = ((steerHistory[0].t - (tEnd - steerPlotWindowSec)) / steerPlotWindowSec) * W;
+  const zeroY = toY(0);
+  ctx.lineTo(lastPx, zeroY); ctx.lineTo(firstPx, zeroY); ctx.closePath();
+  ctx.fillStyle = 'rgba(167,139,250,0.08)';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  for(let i = 0; i < steerHistory.length; i++){
+    const s = steerHistory[i];
+    const px = ((s.t - (tEnd - steerPlotWindowSec)) / steerPlotWindowSec) * W;
+    if(i === 0) ctx.moveTo(px, toY(s.v)); else ctx.lineTo(px, toY(s.v));
+  }
+  ctx.strokeStyle = '#a78bfa';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'rgba(167,139,250,0.35)';
+  ctx.shadowBlur = 5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Labels
+  const last = steerHistory[steerHistory.length - 1];
+  ctx.font = '9px "JetBrains Mono",monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#a78bfa';
+  ctx.fillText(last ? last.v.toFixed(1) : '0.0', W - 2, 10);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.textAlign = 'left';
+  ctx.font = '8px "JetBrains Mono",monospace';
+  ctx.fillText(vHi.toFixed(0), 2, 9);
+  ctx.fillText(vLo.toFixed(0), 2, H - 2);
+}
+
+// ───────────────────────────────────────────────────────────────
 //  MAIN LOOP + PAUSE
 // ───────────────────────────────────────────────────────────────
 let paused = false;
@@ -3662,7 +3851,7 @@ function tick(ts){
 
   const shouldStep = !paused || stepOnceRequested > 0;
   if(!shouldStep){
-    drawScene(); updateHUD();
+    drawScene(); updateHUD(); updateSpeedPlot(); updateSteerPlot();
     return;
   }
   if(paused && stepOnceRequested > 0){
@@ -3792,11 +3981,17 @@ function tick(ts){
   car.trail.push({x:car.x, y:car.y});
   if(car.trail.length>130) car.trail.shift();
 
+  // Speed + steer history for realtime plots
+  speedHistory.push({t: simTime, v: car.speed});
+  steerHistory.push({t: simTime, v: car.steer_angle});
+
   // Flush partial Python stdout/stderr chunks each frame.
   flushPyStreams();
 
   drawScene();
   updateHUD();
+  updateSpeedPlot();
+  updateSteerPlot();
 }
 requestAnimationFrame(tick);
 
@@ -3813,6 +4008,18 @@ function setDrawerOpen(open){
 setDrawerOpen(drawer.classList.contains('open'));
 btnGear.addEventListener('click', ()=>setDrawerOpen(!drawer.classList.contains('open')));
 btnDrawerClose.addEventListener('click', ()=>setDrawerOpen(false));
+
+// Speed plot window input
+document.getElementById('speedPlotWin').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if(Number.isFinite(v) && v >= 1) plotWindowSec = v;
+  e.target.value = plotWindowSec;
+});
+document.getElementById('steerPlotWin').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if(Number.isFinite(v) && v >= 1) steerPlotWindowSec = v;
+  e.target.value = steerPlotWindowSec;
+});
 
 // Controls
 const timeScaleEl = document.getElementById('timeScale');

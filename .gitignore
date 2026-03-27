@@ -1,2 +1,6 @@
 __pycache__/
 *.py[cod]
+
+# Vendored web assets (run scripts/vendor_web_assets.sh to populate)
+assets/vendor/codemirror/
+assets/vendor/pyodide/

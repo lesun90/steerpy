@@ -43,7 +43,7 @@ https://steerpy.withduong.com
 2. Want a guided path? Follow the series at:
 
 ```text
-https://robotic.withduong.com
+https://work.withduong.com/posts/
 ```
 
 3. Prefer local mode? Clone this repo, then run:

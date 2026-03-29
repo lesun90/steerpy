@@ -749,7 +749,7 @@ a:hover{text-decoration:underline}
               </div>
               <div class="row">
                 <label>Time scale</label>
-                <input type="range" id="timeScale" min="0.2" max="2.5" value="1" step="0.1">
+                <input class="num-input" type="number" id="timeScale" min="0.2" max="2.5" value="1" step="0.1" inputmode="decimal">
                 <div class="small"><span id="timeScaleVal">1.0</span>x</div>
               </div>
             </div>
@@ -758,12 +758,12 @@ a:hover{text-decoration:underline}
               <h4>Physics</h4>
               <div class="row">
                 <label>Friction</label>
-                <input type="range" id="friction" min="0" max="0.8" value="0.2" step="0.01">
+                <input class="num-input" type="number" id="friction" min="0" max="0.8" value="0.2" step="0.01" inputmode="decimal">
                 <div class="small" id="frictionVal">0.20</div>
               </div>
               <div class="row">
                 <label>Accel (m/s²)</label>
-                <input type="range" id="accel" min="0" max="12" value="6" step="0.2">
+                <input class="num-input" type="number" id="accel" min="0" max="12" value="6" step="0.2" inputmode="decimal">
                 <div class="small" id="accelVal">6.0</div>
               </div>
             </div>
@@ -772,17 +772,17 @@ a:hover{text-decoration:underline}
               <h4>Vehicle</h4>
               <div class="row">
                 <label>Length (m)</label>
-                <input type="range" id="vehLength" min="2.8" max="8.0" value="4.5" step="0.1">
+                <input class="num-input" type="number" id="vehLength" min="2.8" max="8.0" value="4.5" step="0.1" inputmode="decimal">
                 <div class="small" id="vehLengthVal">4.5</div>
               </div>
               <div class="row">
                 <label>Width (m)</label>
-                <input type="range" id="vehWidth" min="1.4" max="3.2" value="2.0" step="0.05">
+                <input class="num-input" type="number" id="vehWidth" min="1.4" max="3.2" value="2.0" step="0.05" inputmode="decimal">
                 <div class="small" id="vehWidthVal">2.00</div>
               </div>
               <div class="row">
                 <label>Wheelbase (m)</label>
-                <input type="range" id="vehWheelbase" min="1.2" max="4.1" value="2.8" step="0.05">
+                <input class="num-input" type="number" id="vehWheelbase" min="1.2" max="4.1" value="2.8" step="0.05" inputmode="decimal">
                 <div class="small" id="vehWheelbaseVal">2.80</div>
               </div>
               <div class="row">
@@ -843,12 +843,12 @@ a:hover{text-decoration:underline}
               </div>
               <div class="row">
                 <label>LiDAR Range (m)</label>
-                <input type="range" id="lidarRange" min="6" max="60" value="22" step="1">
+                <input class="num-input" type="number" id="lidarRange" min="6" max="60" value="22" step="1" inputmode="numeric">
                 <div class="small" id="lidarRangeVal">22</div>
               </div>
               <div class="row">
                 <label>LiDAR Beams</label>
-                <input type="range" id="lidarBeams" min="12" max="180" value="72" step="1">
+                <input class="num-input" type="number" id="lidarBeams" min="12" max="180" value="72" step="1" inputmode="numeric">
                 <div class="small" id="lidarBeamsVal">72</div>
               </div>
               <div class="row">
@@ -867,7 +867,7 @@ a:hover{text-decoration:underline}
                 <label>Zoom</label>
                 <div class="zoom-controls">
                   <button class="zoom-btn" id="btnZoomOut" aria-label="Zoom out">-</button>
-                  <input type="range" id="zoomScale" min="0.5" max="2.5" value="1" step="0.1">
+                  <input class="num-input" type="number" id="zoomScale" min="0.5" max="2.5" value="1" step="0.1" inputmode="decimal">
                   <button class="zoom-btn" id="btnZoomIn" aria-label="Zoom in">+</button>
                   <div class="small"><span id="zoomScaleVal">1.0</span>x</div>
                 </div>
@@ -4060,15 +4060,36 @@ document.getElementById('steerPlotWin').addEventListener('change', e => {
 // Controls
 const timeScaleEl = document.getElementById('timeScale');
 const timeScaleVal = document.getElementById('timeScaleVal');
-timeScaleEl.addEventListener('input', ()=>{
-  timeScale = +timeScaleEl.value;
+function bindNumericInput(el, apply, sync){
+  el.addEventListener('input', ()=>{
+    const next = +el.value;
+    if(!Number.isFinite(next)) return;
+    apply(next);
+    sync();
+  });
+  el.addEventListener('change', ()=>{
+    sync();
+  });
+  el.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    sync();
+    el.blur();
+  });
+}
+bindNumericInput(timeScaleEl, (next)=>{
+  timeScale = clampRange(next, +timeScaleEl.min, +timeScaleEl.max);
+}, ()=>{
+  timeScaleEl.value = timeScale.toFixed(1);
   timeScaleVal.textContent = timeScale.toFixed(1);
 });
 
 const frictionEl = document.getElementById('friction');
 const frictionVal = document.getElementById('frictionVal');
-frictionEl.addEventListener('input', ()=>{
-  car._friction = +frictionEl.value;
+bindNumericInput(frictionEl, (next)=>{
+  car._friction = clampRange(next, +frictionEl.min, +frictionEl.max);
+}, ()=>{
+  frictionEl.value = car._friction.toFixed(2);
   frictionVal.textContent = car._friction.toFixed(2);
 });
 
@@ -4076,8 +4097,10 @@ const accelEl = document.getElementById('accel');
 const accelVal = document.getElementById('accelVal');
 carModelConfig.min_accel = +accelEl.min;
 carModelConfig.max_accel = +accelEl.max;
-accelEl.addEventListener('input', ()=>{
-  car._accel_force = +accelEl.value;
+bindNumericInput(accelEl, (next)=>{
+  car._accel_force = clampRange(next, +accelEl.min, +accelEl.max);
+}, ()=>{
+  accelEl.value = car._accel_force.toFixed(1);
   accelVal.textContent = car._accel_force.toFixed(1);
   syncVehicleConfigToPython();
 });
@@ -4104,16 +4127,14 @@ function syncLidarSettingsUI(){
 }
 
 if(lidarRangeEl){
-  lidarRangeEl.addEventListener('input', ()=>{
-    LIDAR_MAX_RANGE_M = Math.max(1, +lidarRangeEl.value || 22);
-    syncLidarSettingsUI();
-  });
+  bindNumericInput(lidarRangeEl, (next)=>{
+    LIDAR_MAX_RANGE_M = clampRange(Math.round(next), +lidarRangeEl.min, +lidarRangeEl.max);
+  }, syncLidarSettingsUI);
 }
 if(lidarBeamsEl){
-  lidarBeamsEl.addEventListener('input', ()=>{
-    LIDAR_BEAM_COUNT = Math.max(1, Math.round(+lidarBeamsEl.value || 72));
-    syncLidarSettingsUI();
-  });
+  bindNumericInput(lidarBeamsEl, (next)=>{
+    LIDAR_BEAM_COUNT = clampRange(Math.round(next), +lidarBeamsEl.min, +lidarBeamsEl.max);
+  }, syncLidarSettingsUI);
 }
 
 const vehLengthEl = document.getElementById('vehLength');
@@ -4182,11 +4203,7 @@ function syncCarLimitUI(){
 }
 
 function syncVehicleConfigUI(){
-  vehLengthEl.value = car.length.toFixed(1);
-  vehWidthEl.value = car.width.toFixed(2);
-  vehLengthVal.textContent = car.length.toFixed(1);
-  vehWidthVal.textContent = car.width.toFixed(2);
-  refreshWheelbaseBounds();
+  syncVehicleGeometryUI();
   syncCarLimitUI();
   syncVehicleConfigToPython();
 }
@@ -4214,22 +4231,38 @@ function syncVehicleConfigToPython(){
 
 }
 
-vehLengthEl.addEventListener('input', ()=>{
-  car.length = +vehLengthEl.value;
+function syncVehicleGeometryUI(){
+  car.length = clampRange(car.length, +vehLengthEl.min, +vehLengthEl.max);
+  car.width = clampRange(car.width, +vehWidthEl.min, +vehWidthEl.max);
+  vehLengthEl.value = car.length.toFixed(1);
+  vehWidthEl.value = car.width.toFixed(2);
   vehLengthVal.textContent = car.length.toFixed(1);
-  refreshWheelbaseBounds();
-  syncVehicleConfigToPython();
-});
-vehWidthEl.addEventListener('input', ()=>{
-  car.width = +vehWidthEl.value;
   vehWidthVal.textContent = car.width.toFixed(2);
-  syncVehicleConfigToPython();
-});
-vehWheelbaseEl.addEventListener('input', ()=>{
-  car.wheelbase = +vehWheelbaseEl.value;
   refreshWheelbaseBounds();
-  syncVehicleConfigToPython();
-});
+}
+function bindVehicleGeometryInput(el, apply, sync){
+  el.addEventListener('input', ()=>{
+    const next = +el.value;
+    if(!Number.isFinite(next)) return;
+    apply(next);
+    sync();
+    syncVehicleConfigToPython();
+  });
+  el.addEventListener('change', ()=>{
+    sync();
+    syncVehicleConfigToPython();
+  });
+  el.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    sync();
+    syncVehicleConfigToPython();
+    el.blur();
+  });
+}
+bindVehicleGeometryInput(vehLengthEl, (next)=>{ car.length = next; }, syncVehicleGeometryUI);
+bindVehicleGeometryInput(vehWidthEl, (next)=>{ car.width = next; }, syncVehicleGeometryUI);
+bindVehicleGeometryInput(vehWheelbaseEl, (next)=>{ car.wheelbase = next; }, syncVehicleGeometryUI);
 
 function applyCarLimitsFromUI(){
   applyCarConfigObject({
@@ -4245,6 +4278,11 @@ function applyCarLimitsFromUI(){
 }
 [cfgMinSpeedEl, cfgMaxSpeedEl, cfgMinAccelEl, cfgMaxAccelEl, cfgMinSteerAngEl, cfgMaxSteerAngEl, cfgMinSteerSpdEl, cfgMaxSteerSpdEl]
   .forEach(el => {
+    el.addEventListener('input', ()=>{
+      const next = +el.value;
+      if(!Number.isFinite(next)) return;
+      applyCarLimitsFromUI();
+    });
     el.addEventListener('change', applyCarLimitsFromUI);
     el.addEventListener('keydown', (e)=>{
       if(e.key !== 'Enter') return;
@@ -4255,8 +4293,10 @@ function applyCarLimitsFromUI(){
   });
 
 const zoomScaleEl = document.getElementById('zoomScale');
-zoomScaleEl.addEventListener('input', ()=>{
-  setViewZoom(+zoomScaleEl.value);
+bindNumericInput(zoomScaleEl, (next)=>{
+  setViewZoom(next);
+}, ()=>{
+  setViewZoom(viewZoom);
 });
 document.getElementById('btnZoomIn').addEventListener('click', ()=>stepZoom(1));
 document.getElementById('btnZoomOut').addEventListener('click', ()=>stepZoom(-1));

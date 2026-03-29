@@ -766,11 +766,6 @@ a:hover{text-decoration:underline}
                 <input type="range" id="accel" min="0" max="12" value="6" step="0.2">
                 <div class="small" id="accelVal">6.0</div>
               </div>
-              <div class="row">
-                <label>Reverse/Decel (m/s²)</label>
-                <input type="range" id="brake" min="2" max="16" value="10" step="0.2">
-                <div class="small" id="brakeVal">10.0</div>
-              </div>
             </div>
 
             <div class="grp">
@@ -1100,10 +1095,10 @@ function parseCarConfigData(raw){
   out.max_speed = asNum(pick('max_speed', 'speed_max'));
   out.min_accel = asNum(pick('min_accel', 'accel_min'));
   out.max_accel = asNum(pick('max_accel', 'accel_max'));
-  out.min_steering_angle_deg = asNum(pick('min_steering_angle_deg', 'min_steer_angle_deg', 'steering_angle_min_deg'));
-  out.max_steering_angle_deg = asNum(pick('max_steering_angle_deg', 'max_steer_angle_deg', 'steering_angle_max_deg'));
-  out.min_steering_speed_deg_s = asNum(pick('min_steering_speed_deg_s', 'min_steer_speed_deg_s', 'steering_speed_min_deg_s'));
-  out.max_steering_speed_deg_s = asNum(pick('max_steering_speed_deg_s', 'max_steer_speed_deg_s', 'steering_speed_max_deg_s'));
+  out.min_steering_angle_deg = asNum(pick('min_steering_angle_deg', 'steering_angle_min_deg'));
+  out.max_steering_angle_deg = asNum(pick('max_steering_angle_deg', 'steering_angle_max_deg'));
+  out.min_steering_speed_deg_s = asNum(pick('min_steering_speed_deg_s', 'steering_speed_min_deg_s'));
+  out.max_steering_speed_deg_s = asNum(pick('max_steering_speed_deg_s', 'steering_speed_max_deg_s'));
 
   return out;
 }
@@ -1164,10 +1159,10 @@ function applyCarConfigObject(rawCfg, sourceLabel='car_config.py', opts = {}){
   if(accelInput){
     accelInput.min = fmtCfg(carModelConfig.min_accel);
     accelInput.max = fmtCfg(carModelConfig.max_accel);
-    car._accelForce = clampRange(car._accelForce, carModelConfig.min_accel, carModelConfig.max_accel);
-    accelInput.value = fmtCfg(car._accelForce);
+    car._accel_force = clampRange(car._accel_force, carModelConfig.min_accel, carModelConfig.max_accel);
+    accelInput.value = fmtCfg(car._accel_force);
   }
-  if(accelLabel) accelLabel.textContent = car._accelForce.toFixed(1);
+  if(accelLabel) accelLabel.textContent = car._accel_force.toFixed(1);
 
   if(typeof syncVehicleConfigUI === 'function') syncVehicleConfigUI();
 
@@ -1217,19 +1212,18 @@ const car = {
 
   // ── Control inputs (written by Python simulate_one_step(), read by physics) ─
   // These are SETPOINTS reset to 0 each frame before simulate_one_step() runs.
-  _accelCmd: 0,                  // -1..1 — signed longitudinal demand
-  _steer:    0,                  // -1..1 — steering demand (-1=left, +1=right)
+  _accel_cmd: 0,                 // -1..1 — signed longitudinal demand
+  _steer_cmd: 0,                 // -1..1 — steering demand (-1=left, +1=right)
 
   // ── Physics tunables (approximate real-world magnitudes) ─────────
-  _accelForce: 6.0,              // m/s^2 at full forward command
-  _brakeForce: 10.0,             // m/s^2 at full reverse/decel command
+  _accel_force: 6.0,             // m/s^2 at full forward command
   _friction:   0.20,             // speed damping coefficient
 
   // ── Logging ───────────────────────────────────────────────────
   log(msg){ logCon('info', String(msg)); },
 
   // ── Reset inputs at start of each frame ───────────────────────
-  _reset(){ this._accelCmd=0; this._steer=0; }
+  _reset(){ this._accel_cmd=0; this._steer_cmd=0; }
 };
 
 let LIDAR_MAX_RANGE_M = 22;
@@ -1643,13 +1637,14 @@ document.querySelectorAll('.tab').forEach(t=>{
 });
 
 const STORAGE_KEYS = {
-  update: 'steerpy.simulate_one_step.py',
-  planner: 'steerpy.planner.py',
-  controller: 'steerpy.controller.py',
-  model: 'steerpy.car_models.py',
-  config: 'steerpy.car_config.py',
-  world: 'steerpy.world_config.py',
+  update: 'steerpy.v3.simulate_one_step.py',
+  planner: 'steerpy.v3.planner.py',
+  controller: 'steerpy.v3.controller.py',
+  model: 'steerpy.v3.car_models.py',
+  config: 'steerpy.v3.car_config.py',
+  world: 'steerpy.v3.world_config.py',
 };
+
 function saveEditorsToStorage(){
   try {
     localStorage.setItem(STORAGE_KEYS.update, document.getElementById('editor').value);
@@ -1695,16 +1690,8 @@ function loadEditorsFromStorage(){
               modelSourceByName[k] = txt.trim() ? txt : (MODEL_PRESETS[k] || '');
             }
           }
-        } else if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
-          const txt = String(savedModel);
-          modelSourceByName[currentModelPreset] = txt.trim() ? txt : (MODEL_PRESETS[currentModelPreset] || '');
         }
-      } catch {
-        if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
-          const txt = String(savedModel);
-          modelSourceByName[currentModelPreset] = txt.trim() ? txt : (MODEL_PRESETS[currentModelPreset] || '');
-        }
-      }
+      } catch {}
     }
     if(currentModelPreset && modelSourceByName[currentModelPreset] != null){
       const txt = modelSourceByName[currentModelPreset];
@@ -2270,7 +2257,7 @@ function getSteerTargetDeg(input, cfg){
   return (-u) * cfg.min_steering_angle_deg;
 }
 function applySteerActuator(dt, cfg){
-  const target = getSteerTargetDeg(car._steer, cfg);
+  const target = getSteerTargetDeg(car._steer_cmd, cfg);
   const delta = target - car.steer_angle;
   if(delta >= 0){
     const step = cfg.max_steering_speed_deg_s * dt;
@@ -2282,8 +2269,8 @@ function applySteerActuator(dt, cfg){
   car.steer_angle = clampRange(car.steer_angle, cfg.min_steering_angle_deg, cfg.max_steering_angle_deg);
 }
 function applyLongitudinalSpeed(dt, cfg){
-  const accel = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
-  const longAccel = car._accelCmd >= 0 ? car._accelCmd * accel : car._accelCmd * car._brakeForce;
+  const accel = clampRange(car._accel_force, cfg.min_accel, cfg.max_accel);
+  const longAccel = car._accel_cmd * accel;
   car.speed += longAccel * dt;
   car.speed *= (1 - car._friction * dt);
   car.speed = clampRange(car.speed, cfg.min_speed, cfg.max_speed);
@@ -2373,8 +2360,8 @@ const PHYSICS_MODELS = {
     const vLong = ch * car.vx + sh * car.vy;
     const vLat  = -sh * car.vx + ch * car.vy;
 
-    const accelF = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
-    const longAccel = car._accelCmd >= 0 ? car._accelCmd * accelF : car._accelCmd * car._brakeForce;
+    const accel_force = clampRange(car._accel_force, cfg.min_accel, cfg.max_accel);
+    const longAccel = car._accel_cmd * accel_force;
     const slip    = Math.atan2(vLat, Math.abs(vLong) + 0.05);
     const latA    = -Cr * slip * Math.max(2.0, Math.abs(vLong));
     const axBody  = longAccel;
@@ -2944,6 +2931,56 @@ function destroyModelOverride(name){
   delete pyModelOverrides[name];
 }
 
+function ensureActivePythonModelOverride(){
+  if(pyModelOverrides[activeModel]){
+    return pyModelOverrides[activeModel];
+  }
+  if(!pyodide){
+    return null;
+  }
+  const source = modelSourceByName[activeModel] || MODEL_PRESETS[activeModel] || '';
+  if(!(typeof source === 'string' && source.trim())){
+    return null;
+  }
+  try {
+    pyodide.globals.set('_model_src', source);
+    pyodide.runPython(getPythonSource('model_loader', ''));
+    const stepFn = pyodide.globals.get('_step_obj');
+    const stateObj = pyodide.globals.get('_state_obj');
+    pyModelOverrides[activeModel] = { fn: stepFn, state: stateObj };
+    return pyModelOverrides[activeModel];
+  } catch(e){
+    logCon('err', `build model(${activeModel}) failed: ${e}`);
+    return null;
+  } finally {
+    try {
+      pyodide.globals.delete('_model_src');
+      pyodide.globals.delete('_model_ns');
+      pyodide.globals.delete('_step_obj');
+      pyodide.globals.delete('_state_obj');
+    } catch {}
+  }
+}
+
+function ensureActivePythonModelLoaded(){
+  const ov = ensureActivePythonModelOverride();
+  if(!ov || !pyCar || typeof pyCar.load_model !== 'function'){
+    return false;
+  }
+  try {
+    if(typeof pyCar.has_model === 'function' && pyCar.has_model()){
+      return true;
+    }
+  } catch {}
+  try {
+    pyCar.load_model(ov.fn, ov.state, activeModel);
+    return true;
+  } catch(e){
+    logCon('err', `load_model(${activeModel}) failed: ${e}`);
+    return false;
+  }
+}
+
 function runModelOverride(name, dt){
   const ov = pyModelOverrides[name];
   if(!ov) return false;
@@ -2968,8 +3005,8 @@ function runModelOverride(name, dt){
     pyCar.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
     pyCar.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
     pyCar.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
-    pyCar.apply_control(car._accelCmd, car._steer);
-    pyCar.simulate_one_step(dt, car._accelForce, car._brakeForce, car._friction);
+    pyCar.apply_control(car._accel_cmd, car._steer_cmd);
+    pyCar.simulate_one_step(dt, car._accel_force, car._friction);
     syncPyCarStateToJsCar();
     return true;
   } catch(e){
@@ -3089,13 +3126,13 @@ document.getElementById('btnResetModel').addEventListener('click', async ()=>{
 });
 
 // ───────────────────────────────────────────────────────────────
-//  Input sync: Python writes pyCar.accel_cmd/steer
+//  Input sync: Python writes pyCar.accel_cmd/steer_cmd
 // ───────────────────────────────────────────────────────────────
 function syncCarInputs(){
   // clamp
   const clamp=(v,a,b)=>Math.max(a,Math.min(b, v));
-  car._accelCmd = clamp(+pyCar.accel_cmd || 0, -1, 1);
-  car._steer = clamp(+pyCar.steer || 0, -1, 1);
+  car._accel_cmd = clamp(+pyCar.accel_cmd || 0, -1, 1);
+  car._steer_cmd = clamp(+pyCar.steer_cmd || 0, -1, 1);
 }
 
 function syncPyCarStateToJsCar(){
@@ -3871,13 +3908,14 @@ function tick(ts){
   // Reset inputs for this frame; Python (auto) or keyboard (manual) sets new commands.
   car._reset();
   if(controlMode === 'manual'){
-    car._accelCmd = (manualKeys.up ? 1 : 0) + (manualKeys.down ? -1 : 0);
-    car._steer = (manualKeys.left ? -1 : 0) + (manualKeys.right ? 1 : 0);
+    car._accel_cmd = (manualKeys.up ? 1 : 0) + (manualKeys.down ? -1 : 0);
+    car._steer_cmd = (manualKeys.left ? -1 : 0) + (manualKeys.right ? 1 : 0);
   }
 
   // Sync python objects (state in meters)
   let physicsSteppedInPython = false;
   if(pyCar){
+    ensureActivePythonModelLoaded();
     pyCar.x = car.x;  pyCar.y = car.y;
     pyCar.angle = car.angle;
     pyCar.speed = car.speed;
@@ -3895,10 +3933,9 @@ function tick(ts){
     pyCar.steer_angle = car.steer_angle;
     pyCar.vx = car.vx; pyCar.vy = car.vy;
     pyCar.dt = dt;
-    pyCar.accel_force = car._accelForce;
-    pyCar.brake_force = car._brakeForce;
+    pyCar.accel_force = car._accel_force;
     pyCar.friction = car._friction;
-    pyCar.accel_cmd = car._accelCmd;
+    pyCar.accel_cmd = car._accel_cmd;
     pyCar._did_simulate_step = false;
 
     pyCar.model = activeModel;
@@ -3963,8 +4000,8 @@ function tick(ts){
       }
     }
     if(controlMode === 'manual'){
-      pyCar.accel_cmd = car._accelCmd;
-      pyCar.steer = car._steer;
+      pyCar.accel_cmd = car._accel_cmd;
+      pyCar.steer_cmd = car._steer_cmd;
     }
   }
 
@@ -4040,17 +4077,11 @@ const accelVal = document.getElementById('accelVal');
 carModelConfig.min_accel = +accelEl.min;
 carModelConfig.max_accel = +accelEl.max;
 accelEl.addEventListener('input', ()=>{
-  car._accelForce = +accelEl.value;
-  accelVal.textContent = car._accelForce.toFixed(1);
+  car._accel_force = +accelEl.value;
+  accelVal.textContent = car._accel_force.toFixed(1);
   syncVehicleConfigToPython();
 });
 
-const brakeEl = document.getElementById('brake');
-const brakeVal = document.getElementById('brakeVal');
-brakeEl.addEventListener('input', ()=>{
-  car._brakeForce = +brakeEl.value;
-  brakeVal.textContent = car._brakeForce.toFixed(1);
-});
 
 const lidarRangeEl = document.getElementById('lidarRange');
 const lidarRangeVal = document.getElementById('lidarRangeVal');

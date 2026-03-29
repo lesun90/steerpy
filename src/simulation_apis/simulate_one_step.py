@@ -28,7 +28,7 @@
 #
 # Control API (write once per frame):
 #   car.accel_cmd = -1..1
-#   car.steer     = -1..1
+#   car.steer_cmd = -1..1
 #   car.simulate_one_step()  # optional: run model step immediately in Python
 #
 # Helpers:
@@ -38,10 +38,10 @@ def simulate_one_step(car, world_model):
     trajectory = planner(car, world_model)
     drawLine(trajectory, 0.08, "rgba(125,249,255,.9)")
 
-    accel_cmd, steer = controller(car, trajectory)
+    accel_cmd, steer_cmd = controller(car, trajectory)
     car.accel_cmd = accel_cmd
-    car.steer = steer
+    car.steer_cmd = steer_cmd
     car.simulate_one_step()
 
     if world_model.frame_id % 120 == 0 and trajectory:
-        car.log(f"planner pts={len(trajectory)} accel_cmd={accel_cmd:.2f} steer={steer:.2f}")
+        car.log(f"planner pts={len(trajectory)} accel_cmd={accel_cmd:.2f} steer_cmd={steer_cmd:.2f}")

@@ -1,8 +1,8 @@
 # SteerPy author, 2026.
 
 # controller.py
-# controller(car, trajectory) -> [accel_cmd, steer]
-# steer convention: -1 left, +1 right
+# controller(car, trajectory) -> [accel_cmd, steer_cmd]
+# steer_cmd convention: -1 left, +1 right
 #
 # Available state:
 #   car.x, car.y, car.angle, car.speed
@@ -15,7 +15,7 @@
 #
 # Write controls in simulate_one_step.py:
 #   car.accel_cmd = -1..1
-#   car.steer     = -1..1
+#   car.steer_cmd = -1..1
 #
 # Helpers:
 #   car.log(msg), print(msg), drawLine(line, width, color)

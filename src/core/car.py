@@ -27,7 +27,7 @@ class Car:
     Write (set once per frame, reset to 0 before each call):
         accel_cmd      -- signed longitudinal demand [-1, 1]
                           (-1=full reverse/decel, +1=full forward accel)
-        steer          -- steering demand            [-1, 1]  (-1=full left, +1=full right)
+        steer_cmd      -- steering demand            [-1, 1]  (-1=full left, +1=full right)
 
     Debug draw helpers:
         drawLine(line, width=0.08, color='rgba(...)')
@@ -59,10 +59,9 @@ class Car:
         self.model = "kinematic"
         self.control_mode = "auto"
         self.accel_cmd = 0.0
-        self.steer = 0.0
+        self.steer_cmd = 0.0
         self.dt = 1.0 / 60.0
         self.accel_force = 12.0
-        self.brake_force = 18.0
         self.friction = 0.16
         self._did_simulate_step = False
         self._model_step_fn = None
@@ -78,9 +77,9 @@ class Car:
             return hi
         return value
 
-    def apply_control(self, accel_cmd=0.0, steer=0.0):
+    def apply_control(self, accel_cmd=0.0, steer_cmd=0.0):
         self.accel_cmd = self._clamp(float(accel_cmd), -1.0, 1.0)
-        self.steer = self._clamp(float(steer), -1.0, 1.0)
+        self.steer_cmd = self._clamp(float(steer_cmd), -1.0, 1.0)
 
     def load_model(self, step_fn, state_obj=None, model_name=None):
         if step_fn is None or not callable(step_fn):
@@ -101,7 +100,7 @@ class Car:
     def has_model(self):
         return self._model_step_fn is not None and self._model_state is not None
 
-    def export_car_state(self, dt, accel_force=12.0, brake_force=18.0, friction=0.16):
+    def export_car_state(self, dt, accel_force=12.0, friction=0.16):
         s = self._model_state
         s.x = self.x
         s.y = self.y
@@ -118,18 +117,13 @@ class Car:
         s.max_accel = self.max_accel
         s.min_steering_angle_deg = self.min_steering_angle_deg
         s.max_steering_angle_deg = self.max_steering_angle_deg
-        s.min_steer_angle_deg = self.min_steering_angle_deg
-        s.max_steer_angle_deg = self.max_steering_angle_deg
         s.min_steering_speed_deg_s = self.min_steering_speed_deg_s
         s.max_steering_speed_deg_s = self.max_steering_speed_deg_s
-        s.min_steer_speed_deg_s = self.min_steering_speed_deg_s
-        s.max_steer_speed_deg_s = self.max_steering_speed_deg_s
         s.steer_angle_deg = self.steer_angle
         accel_cmd = self._clamp(float(self.accel_cmd), -1.0, 1.0)
         s.accel_cmd = accel_cmd
-        s.steer_input = self.steer
+        s.steer_cmd = self.steer_cmd
         s.accel_force = float(accel_force)
-        s.brake_force = float(brake_force)
         s.friction = float(friction)
         s.dt = float(dt)
 
@@ -159,7 +153,7 @@ class Car:
             self.min_speed, self.max_speed = self.max_speed, self.min_speed
         self.speed = self._clamp(self.speed, self.min_speed, self.max_speed)
 
-    def simulate_one_step(self, dt=None, accel_force=None, brake_force=None, friction=None):
+    def simulate_one_step(self, dt=None, accel_force=None, friction=None):
         if not self.has_model():
             raise RuntimeError("No model loaded. Call load_model(step_fn, state_obj) first.")
         if dt is None:
@@ -167,16 +161,13 @@ class Car:
         dt = float(dt)
         if accel_force is None:
             accel_force = self.accel_force
-        if brake_force is None:
-            brake_force = self.brake_force
         if friction is None:
             friction = self.friction
-        self.export_car_state(dt, accel_force, brake_force, friction)
+        self.export_car_state(dt, accel_force, friction)
         self._model_step_fn(self._model_state, dt)
         self.import_car_state()
         self.dt = dt
         self.accel_force = float(accel_force)
-        self.brake_force = float(brake_force)
         self.friction = float(friction)
         self._did_simulate_step = True
 

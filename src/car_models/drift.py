@@ -12,8 +12,8 @@ def step(state, dt):
     CF = 1.8
     CR = 1.3
 
-    target = (state.max_steering_angle_deg * max(0.0, state.steer_input)
-              + state.min_steering_angle_deg * max(0.0, -state.steer_input))
+    target = (state.max_steering_angle_deg * max(0.0, state.steer_cmd)
+              + state.min_steering_angle_deg * max(0.0, -state.steer_cmd))
     if target >= state.steer_angle_deg:
         state.steer_angle_deg = min(target, state.steer_angle_deg + state.max_steering_speed_deg_s * dt)
     else:
@@ -27,7 +27,7 @@ def step(state, dt):
 
     accel = max(state.min_accel, min(state.max_accel, state.accel_force))
     accel_cmd = max(-1.0, min(1.0, state.accel_cmd))
-    long_accel = accel_cmd * (accel if accel_cmd >= 0.0 else state.brake_force)
+    long_accel = accel_cmd * accel
     slip = math.atan2(v_lat, abs(v_long) + 0.05)
     lat_a = -CR * slip * max(2.0, abs(v_long))
     ax_body = long_accel

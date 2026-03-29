@@ -134,7 +134,7 @@ Common state and limits, including:
 
 Control outputs to write each frame:
 - `car.accel_cmd` in `[-1,1]`
-- `car.steer` in `[-1,1]`
+- `car.steer_cmd` in `[-1,1]`
 
 ### `car.sensors`
 

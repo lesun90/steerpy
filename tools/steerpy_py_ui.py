@@ -75,7 +75,6 @@ setattr(car_mod, "Sensors", sensors_mod.Sensors)
 @dataclass
 class CarState:
     accel_force: float = 12.0
-    brake_force: float = 18.0
     friction: float = 0.16
 
 
@@ -545,19 +544,19 @@ class SteerPyPyUI:
             if self.manual_keys["down"]:
                 accel_cmd -= 1.0
             self.car.accel_cmd = accel_cmd
-            steer = 0.0
+            steer_cmd = 0.0
             if self.manual_keys["left"]:
-                steer -= 1.0
+                steer_cmd -= 1.0
             if self.manual_keys["right"]:
-                steer += 1.0
-            self.car.steer = steer
+                steer_cmd += 1.0
+            self.car.steer_cmd = steer_cmd
         else:
             self.car.accel_cmd = 0.0
-            self.car.steer = 0.0
+            self.car.steer_cmd = 0.0
             self._run_behavior()
 
         if self.control_mode == "manual" or not self.car._did_simulate_step:
-            self.car.simulate_one_step(dt, self.car_state.accel_force, self.car_state.brake_force, self.car_state.friction)
+            self.car.simulate_one_step(dt, self.car_state.accel_force, self.car_state.friction)
         self.car._did_simulate_step = False
 
     def _run_behavior(self):

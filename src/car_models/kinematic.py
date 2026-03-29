@@ -1,6 +1,6 @@
 # SteerPy author, 2026.
 
-# Convention: steer_input = -1 left, +1 right.
+# Convention: steer_cmd = -1 left, +1 right.
 
 import math
 
@@ -10,8 +10,8 @@ class State:
         pass
 
 def step(state, dt):
-    target = (state.max_steering_angle_deg * max(0.0, state.steer_input)
-              + state.min_steering_angle_deg * max(0.0, -state.steer_input))
+    target = (state.max_steering_angle_deg * max(0.0, state.steer_cmd)
+              + state.min_steering_angle_deg * max(0.0, -state.steer_cmd))
     if target >= state.steer_angle_deg:
         state.steer_angle_deg = min(target, state.steer_angle_deg + state.max_steering_speed_deg_s * dt)
     else:
@@ -19,7 +19,7 @@ def step(state, dt):
 
     accel = max(state.min_accel, min(state.max_accel, state.accel_force))
     accel_cmd = max(-1.0, min(1.0, state.accel_cmd))
-    long_accel = accel_cmd * (accel if accel_cmd >= 0.0 else state.brake_force)
+    long_accel = accel_cmd * accel
     state.speed += long_accel * dt
     state.speed *= (1.0 - state.friction * dt)
     state.speed = max(state.min_speed, min(state.max_speed, state.speed))

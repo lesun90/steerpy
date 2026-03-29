@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSET_DIR="$ROOT_DIR/assets/vendor"
 CM_VER="5.65.20"
-PY_VER="0.25.1"
+PY_VER="0.29.3"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then

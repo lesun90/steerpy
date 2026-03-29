@@ -35,7 +35,7 @@
   "url": "/index.html"
 }
 </script>
-<script src="assets/vendor/pyodide/v0.25.1/full/pyodide.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js'"></script>
+<script src="assets/vendor/pyodide/v0.29.3/full/pyodide.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js'"></script>
 <link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/lib/codemirror.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.css'">
 <link rel="stylesheet" href="assets/vendor/codemirror/5.65.20/theme/material-darker.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/material-darker.min.css'">
 <script src="assets/vendor/codemirror/5.65.20/lib/codemirror.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.min.js'"></script>
@@ -1731,9 +1731,10 @@ let pyodide = null, pyUpdateFn = null;
 let pyStepFnName = 'simulate_one_step';
 let pyCar, pySensors, pyWorldModel, pySetWorldRuntimeFn, pySetWorldScenarioFn;
 const PYODIDE_LOADER_URLS = [
-  'assets/vendor/pyodide/v0.25.1/full/pyodide.js',
-  'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js',
+  'assets/vendor/pyodide/v0.29.3/full/pyodide.js',
+  'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js',
 ];
+const PYODIDE_BROWSER_PACKAGES = ['cvxpy-base', 'clarabel'];
 
 function setLoadTxt(s){ document.getElementById('loadTxt').textContent = s; }
 
@@ -1783,6 +1784,8 @@ async function initPyodide() {
     await ensurePyodideLoader();
     setLoadTxt('Loading Python runtime (Pyodide)…');
     pyodide = await loadPyodide();
+    setLoadTxt('Loading browser Python packages…');
+    await pyodide.loadPackage(PYODIDE_BROWSER_PACKAGES);
     setLoadTxt('Initializing Python wrappers…');
 
     // Route native Python print()/stderr into the simulator console in realtime.

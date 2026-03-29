@@ -25,9 +25,9 @@ class Car:
         control_mode   -- "auto" | "manual"
 
     Write (set once per frame, reset to 0 before each call):
-        throttle       -- acceleration demand  [0, 1]
-        brake          -- braking demand       [0, 1]
-        steer          -- steering demand      [-1, 1]  (-1=full left, +1=full right)
+        accel_cmd      -- signed longitudinal demand [-1, 1]
+                          (-1=full reverse/decel, +1=full forward accel)
+        steer          -- steering demand            [-1, 1]  (-1=full left, +1=full right)
 
     Debug draw helpers:
         drawLine(line, width=0.08, color='rgba(...)')
@@ -58,8 +58,7 @@ class Car:
         self.vy = 0.0
         self.model = "kinematic"
         self.control_mode = "auto"
-        self.throttle = 0.0
-        self.brake = 0.0
+        self.accel_cmd = 0.0
         self.steer = 0.0
         self.dt = 1.0 / 60.0
         self.accel_force = 12.0
@@ -79,9 +78,8 @@ class Car:
             return hi
         return value
 
-    def apply_control(self, throttle=0.0, brake=0.0, steer=0.0):
-        self.throttle = self._clamp(float(throttle), 0.0, 1.0)
-        self.brake = self._clamp(float(brake), 0.0, 1.0)
+    def apply_control(self, accel_cmd=0.0, steer=0.0):
+        self.accel_cmd = self._clamp(float(accel_cmd), -1.0, 1.0)
         self.steer = self._clamp(float(steer), -1.0, 1.0)
 
     def load_model(self, step_fn, state_obj=None, model_name=None):
@@ -127,8 +125,8 @@ class Car:
         s.min_steer_speed_deg_s = self.min_steering_speed_deg_s
         s.max_steer_speed_deg_s = self.max_steering_speed_deg_s
         s.steer_angle_deg = self.steer_angle
-        s.throttle_input = self.throttle
-        s.brake_input = self.brake
+        accel_cmd = self._clamp(float(self.accel_cmd), -1.0, 1.0)
+        s.accel_cmd = accel_cmd
         s.steer_input = self.steer
         s.accel_force = float(accel_force)
         s.brake_force = float(brake_force)

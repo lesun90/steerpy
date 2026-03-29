@@ -1,7 +1,7 @@
 # SteerPy author, 2026.
 
 # controller.py
-# controller(car, trajectory) -> [throttle, steer]
+# controller(car, trajectory) -> [accel_cmd, steer]
 # steer convention: -1 left, +1 right
 #
 # Available state:
@@ -14,9 +14,8 @@
 #   car.steer_angle, car.vx, car.vy, car.model, car.control_mode
 #
 # Write controls in simulate_one_step.py:
-#   car.throttle = 0..1
-#   car.brake    = 0..1
-#   car.steer    = -1..1
+#   car.accel_cmd = -1..1
+#   car.steer     = -1..1
 #
 # Helpers:
 #   car.log(msg), print(msg), drawLine(line, width, color)
@@ -53,5 +52,5 @@ def controller(car, trajectory):
     steer_cmd = clamp(-math.degrees(delta_left) / steer_limit, -1.0, 1.0)
 
     speed_err = target_speed - car.speed
-    throttle = clamp(speed_err / 4.0, 0.0, 1.0)
-    return [throttle, steer_cmd]
+    accel_cmd = clamp(speed_err / 4.0, -1.0, 1.0)
+    return [accel_cmd, steer_cmd]

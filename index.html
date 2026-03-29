@@ -566,7 +566,7 @@ a:hover{text-decoration:underline}
       <div class="pane" id="paneController" hidden>
         <div class="pane-bar">
           <span class="pill-cyan">CONTROLLER</span>
-          <span>Steering/throttle control logic (meters)</span>
+          <span>Steering/acceleration control logic (meters)</span>
         </div>
 
         <div class="editor-wrap">
@@ -767,7 +767,7 @@ a:hover{text-decoration:underline}
                 <div class="small" id="accelVal">6.0</div>
               </div>
               <div class="row">
-                <label>Brake (m/s²)</label>
+                <label>Reverse/Decel (m/s²)</label>
                 <input type="range" id="brake" min="2" max="16" value="10" step="0.2">
                 <div class="small" id="brakeVal">10.0</div>
               </div>
@@ -1217,20 +1217,19 @@ const car = {
 
   // ── Control inputs (written by Python simulate_one_step(), read by physics) ─
   // These are SETPOINTS reset to 0 each frame before simulate_one_step() runs.
-  _throttle: 0,                  // 0..1  — acceleration demand
-  _brake:    0,                  // 0..1  — braking demand
+  _accelCmd: 0,                  // -1..1 — signed longitudinal demand
   _steer:    0,                  // -1..1 — steering demand (-1=left, +1=right)
 
   // ── Physics tunables (approximate real-world magnitudes) ─────────
-  _accelForce: 6.0,              // m/s^2 at full throttle
-  _brakeForce: 10.0,             // m/s^2 at full brake
+  _accelForce: 6.0,              // m/s^2 at full forward command
+  _brakeForce: 10.0,             // m/s^2 at full reverse/decel command
   _friction:   0.20,             // speed damping coefficient
 
   // ── Logging ───────────────────────────────────────────────────
   log(msg){ logCon('info', String(msg)); },
 
   // ── Reset inputs at start of each frame ───────────────────────
-  _reset(){ this._throttle=0; this._brake=0; this._steer=0; }
+  _reset(){ this._accelCmd=0; this._steer=0; }
 };
 
 let LIDAR_MAX_RANGE_M = 22;
@@ -2284,8 +2283,8 @@ function applySteerActuator(dt, cfg){
 }
 function applyLongitudinalSpeed(dt, cfg){
   const accel = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
-  car.speed += car._throttle * accel * dt;
-  car.speed -= car._brake * car._brakeForce * dt;
+  const longAccel = car._accelCmd >= 0 ? car._accelCmd * accel : car._accelCmd * car._brakeForce;
+  car.speed += longAccel * dt;
   car.speed *= (1 - car._friction * dt);
   car.speed = clampRange(car.speed, cfg.min_speed, cfg.max_speed);
 }
@@ -2375,11 +2374,10 @@ const PHYSICS_MODELS = {
     const vLat  = -sh * car.vx + ch * car.vy;
 
     const accelF = clampRange(car._accelForce, cfg.min_accel, cfg.max_accel);
-    const driveF  = car._throttle * accelF;
-    const brakeF  = car._brake    * car._brakeForce;
+    const longAccel = car._accelCmd >= 0 ? car._accelCmd * accelF : car._accelCmd * car._brakeForce;
     const slip    = Math.atan2(vLat, Math.abs(vLong) + 0.05);
     const latA    = -Cr * slip * Math.max(2.0, Math.abs(vLong));
-    const axBody  = (driveF - brakeF);
+    const axBody  = longAccel;
     const ayBody  = latA;
     const ax = ch * axBody - sh * ayBody;
     const ay = sh * axBody + ch * ayBody;
@@ -2970,7 +2968,7 @@ function runModelOverride(name, dt){
     pyCar.max_steering_angle_deg = carModelConfig.max_steering_angle_deg;
     pyCar.min_steering_speed_deg_s = carModelConfig.min_steering_speed_deg_s;
     pyCar.max_steering_speed_deg_s = carModelConfig.max_steering_speed_deg_s;
-    pyCar.apply_control(car._throttle, car._brake, car._steer);
+    pyCar.apply_control(car._accelCmd, car._steer);
     pyCar.simulate_one_step(dt, car._accelForce, car._brakeForce, car._friction);
     syncPyCarStateToJsCar();
     return true;
@@ -3091,14 +3089,13 @@ document.getElementById('btnResetModel').addEventListener('click', async ()=>{
 });
 
 // ───────────────────────────────────────────────────────────────
-//  Input sync: Python writes pyCar.throttle/brake/steer
+//  Input sync: Python writes pyCar.accel_cmd/steer
 // ───────────────────────────────────────────────────────────────
 function syncCarInputs(){
   // clamp
   const clamp=(v,a,b)=>Math.max(a,Math.min(b, v));
-  car._throttle = clamp(+pyCar.throttle || 0, 0, 1);
-  car._brake    = clamp(+pyCar.brake    || 0, 0, 1);
-  car._steer    = clamp(+pyCar.steer    || 0, -1, 1);
+  car._accelCmd = clamp(+pyCar.accel_cmd || 0, -1, 1);
+  car._steer = clamp(+pyCar.steer || 0, -1, 1);
 }
 
 function syncPyCarStateToJsCar(){
@@ -3874,8 +3871,7 @@ function tick(ts){
   // Reset inputs for this frame; Python (auto) or keyboard (manual) sets new commands.
   car._reset();
   if(controlMode === 'manual'){
-    car._throttle = (manualKeys.up && !manualKeys.down) ? 1 : 0;
-    car._brake = manualKeys.down ? 1 : 0;
+    car._accelCmd = (manualKeys.up ? 1 : 0) + (manualKeys.down ? -1 : 0);
     car._steer = (manualKeys.left ? -1 : 0) + (manualKeys.right ? 1 : 0);
   }
 
@@ -3902,6 +3898,7 @@ function tick(ts){
     pyCar.accel_force = car._accelForce;
     pyCar.brake_force = car._brakeForce;
     pyCar.friction = car._friction;
+    pyCar.accel_cmd = car._accelCmd;
     pyCar._did_simulate_step = false;
 
     pyCar.model = activeModel;
@@ -3966,8 +3963,7 @@ function tick(ts){
       }
     }
     if(controlMode === 'manual'){
-      pyCar.throttle = car._throttle;
-      pyCar.brake = car._brake;
+      pyCar.accel_cmd = car._accelCmd;
       pyCar.steer = car._steer;
     }
   }

@@ -26,11 +26,11 @@ def step(state, dt):
     v_lat = -sh * state.vx + ch * state.vy
 
     accel = max(state.min_accel, min(state.max_accel, state.accel_force))
-    drive = state.throttle_input * accel
-    brake = state.brake_input * state.brake_force
+    accel_cmd = max(-1.0, min(1.0, state.accel_cmd))
+    long_accel = accel_cmd * (accel if accel_cmd >= 0.0 else state.brake_force)
     slip = math.atan2(v_lat, abs(v_long) + 0.05)
     lat_a = -CR * slip * max(2.0, abs(v_long))
-    ax_body = (drive - brake)
+    ax_body = long_accel
     ay_body = lat_a
     ax = ch * ax_body - sh * ay_body
     ay = sh * ax_body + ch * ay_body

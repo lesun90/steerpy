@@ -539,8 +539,12 @@ class SteerPyPyUI:
         self.draw_lines.clear()
 
         if self.control_mode == "manual":
-            self.car.throttle = 1.0 if self.manual_keys["up"] and not self.manual_keys["down"] else 0.0
-            self.car.brake = 1.0 if self.manual_keys["down"] else 0.0
+            accel_cmd = 0.0
+            if self.manual_keys["up"]:
+                accel_cmd += 1.0
+            if self.manual_keys["down"]:
+                accel_cmd -= 1.0
+            self.car.accel_cmd = accel_cmd
             steer = 0.0
             if self.manual_keys["left"]:
                 steer -= 1.0
@@ -548,8 +552,7 @@ class SteerPyPyUI:
                 steer += 1.0
             self.car.steer = steer
         else:
-            self.car.throttle = 0.0
-            self.car.brake = 0.0
+            self.car.accel_cmd = 0.0
             self.car.steer = 0.0
             self._run_behavior()
 

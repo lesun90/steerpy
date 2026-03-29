@@ -84,7 +84,7 @@ Features:
 
 - `simulate_one_step.py`: main per-frame entry point (`simulate_one_step(car, world_model)`).
 - `planner.py`: path/trajectory generation.
-- `controller.py`: steering/throttle from trajectory.
+- `controller.py`: steering/acceleration command from trajectory.
 - `MODEL` tab (`src/car_models/*.py`): vehicle dynamics model (`step(state, dt)`), with presets.
 - `car_config.py`: shared vehicle limits and dimensions.
 - `world_config.py`: road, obstacles, and optional car initial state.
@@ -133,8 +133,7 @@ Common state and limits, including:
 - model state: `steer_angle`, `vx`, `vy`, `model`, `control_mode`
 
 Control outputs to write each frame:
-- `car.throttle` in `[0,1]`
-- `car.brake` in `[0,1]`
+- `car.accel_cmd` in `[-1,1]`
 - `car.steer` in `[-1,1]`
 
 ### `car.sensors`

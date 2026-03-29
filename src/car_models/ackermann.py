@@ -19,8 +19,9 @@ def step(state, dt):
         state.steer_angle_deg = max(target, state.steer_angle_deg + state.min_steering_speed_deg_s * dt)
 
     accel = max(state.min_accel, min(state.max_accel, state.accel_force))
-    state.speed += state.throttle_input * accel * dt
-    state.speed -= state.brake_input * state.brake_force * dt
+    accel_cmd = max(-1.0, min(1.0, state.accel_cmd))
+    long_accel = accel_cmd * (accel if accel_cmd >= 0.0 else state.brake_force)
+    state.speed += long_accel * dt
     state.speed *= (1.0 - state.friction * dt)
     state.speed = max(state.min_speed, min(state.max_speed, state.speed))
 

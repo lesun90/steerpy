@@ -2,22 +2,47 @@
 
 class _PointNormalizer:
     @staticmethod
+    def _coerce_speed(value):
+        try:
+            speed = float(value)
+        except Exception:
+            return None
+        return speed if speed == speed else None
+
+    @staticmethod
     def coerce_point(value):
         if isinstance(value, (list, tuple)) and len(value) >= 2:
             try:
-                return [float(value[0]), float(value[1])]
+                point = [float(value[0]), float(value[1])]
+                if len(value) >= 3:
+                    speed = _PointNormalizer._coerce_speed(value[2])
+                    if speed is not None:
+                        point.append(speed)
+                return point
             except Exception:
                 return None
 
         if isinstance(value, dict):
             if "x" in value and "y" in value:
                 try:
-                    return [float(value["x"]), float(value["y"])]
+                    point = [float(value["x"]), float(value["y"])]
+                    speed = _PointNormalizer._coerce_speed(
+                        value.get("speed", value.get("target_speed", value.get("v")))
+                    )
+                    if speed is not None:
+                        point.append(speed)
+                    return point
                 except Exception:
                     return None
             if "xy" in value and isinstance(value["xy"], (list, tuple)) and len(value["xy"]) >= 2:
                 try:
-                    return [float(value["xy"][0]), float(value["xy"][1])]
+                    point = [float(value["xy"][0]), float(value["xy"][1])]
+                    speed = _PointNormalizer._coerce_speed(
+                        value.get("speed", value.get("target_speed", value.get("v")))
+                    )
+                    if speed is not None:
+                        point.append(speed)
+                    return point
                 except Exception:
                     return None
 

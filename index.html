@@ -1251,21 +1251,63 @@ function normalizeDrawPoint(raw){
     const x = +raw[0];
     const y = +raw[1];
     if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return {x, y};
+    const speed = +raw[2];
+    return Number.isFinite(speed) ? {x, y, speed} : {x, y};
   }
   if(typeof raw === 'object'){
     if(Array.isArray(raw.xy)){
       const x = +raw.xy[0];
       const y = +raw.xy[1];
       if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
-      return {x, y};
+      const speed = +(raw.speed ?? raw.target_speed ?? raw.v);
+      return Number.isFinite(speed) ? {x, y, speed} : {x, y};
     }
     const x = +raw.x;
     const y = +raw.y;
     if(!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return {x, y};
+    const speed = +(raw.speed ?? raw.target_speed ?? raw.v);
+    return Number.isFinite(speed) ? {x, y, speed} : {x, y};
   }
   return null;
+}
+function speedColor(targetSpeed, currentSpeed){
+  if(!Number.isFinite(targetSpeed) || !Number.isFinite(currentSpeed)) return 'rgba(125,249,255,.9)';
+  const delta = targetSpeed - currentSpeed;
+  const maxDelta = Math.max(1.0, Math.abs(car.max_speed - car.min_speed) * 0.25);
+  const t = Math.max(-1, Math.min(1, delta / maxDelta));
+
+  if(t >= 0){
+    const mix = t;
+    const r = Math.round(255 * (1 - mix));
+    const g = 255;
+    const b = Math.round(255 * (1 - mix));
+    return `rgba(${r},${g},${b},0.96)`;
+  }
+
+  const mix = -t;
+  const r = 255;
+  const g = Math.round(255 * (1 - mix));
+  const b = Math.round(255 * (1 - mix));
+  return `rgba(${r},${g},${b},0.96)`;
+}
+function fillStripSegment(p0, p1, width, color){
+  const dx = p1.x - p0.x;
+  const dy = p1.y - p0.y;
+  const len = Math.hypot(dx, dy);
+  if(len < 1e-6) return;
+
+  const halfW = Math.max(0.02, width) * 0.5;
+  const nx = -dy / len;
+  const ny = dx / len;
+
+  ctx.beginPath();
+  ctx.moveTo(p0.x + nx * halfW, p0.y + ny * halfW);
+  ctx.lineTo(p1.x + nx * halfW, p1.y + ny * halfW);
+  ctx.lineTo(p1.x - nx * halfW, p1.y - ny * halfW);
+  ctx.lineTo(p0.x - nx * halfW, p0.y - ny * halfW);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
 }
 function normalizeDrawLine(raw){
   const line = toJsIfProxy(raw);
@@ -3374,6 +3416,20 @@ function drawPythonLines(){
   for(const line of pyDrawLines){
     const pts = line.points;
     if(!pts || pts.length < 2) continue;
+
+    const hasSpeed = pts.some(p => Number.isFinite(p.speed));
+
+    if(hasSpeed){
+      const stripWidth = Number.isFinite(line.width) ? Math.max(0.08, line.width * 3.0) : 0.24;
+      for(let i=1; i<pts.length; i++){
+        const p0 = pts[i - 1];
+        const p1 = pts[i];
+        const segSpeed = Number.isFinite(p1.speed) ? p1.speed : p0.speed;
+        fillStripSegment(p0, p1, stripWidth, speedColor(segSpeed, car.speed));
+      }
+      continue;
+    }
+
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     for(let i=1; i<pts.length; i++){

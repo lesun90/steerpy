@@ -51,8 +51,8 @@ class Car:
         self.max_accel = 12.0
         self.min_steering_angle_deg = -40.0
         self.max_steering_angle_deg = 40.0
-        self.min_steering_speed_deg_s = -220.0
-        self.max_steering_speed_deg_s = 220.0
+        self.min_steering_speed_deg_s = -50.0
+        self.max_steering_speed_deg_s = 50.0
         self.steer_angle = 0.0
         self.vx = 0.0
         self.vy = 0.0

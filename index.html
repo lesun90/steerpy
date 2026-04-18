@@ -51,7 +51,7 @@
   --bg:#0a0c10;--panel:#0e1117;--border:#1c2030;
   --accent:#00e5ff;--accent2:#7c3aed;
   --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;
-  --text:#e2e8f0;--muted:#4a5568;
+  --text:#e2e8f0;--muted:#94a3b8;--tab-text:#a8b3cf;
 }
 body{
   font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
@@ -108,7 +108,7 @@ body{
 .tab{
   display:flex;align-items:center;gap:6px;
   padding:10px 16px;font-size:10.5px;
-  color:var(--muted);cursor:pointer;
+  color:var(--tab-text);cursor:pointer;
   border-bottom:2px solid transparent;
   transition:all .15s;user-select:none;white-space:nowrap;
   letter-spacing:.03em;flex:0 0 auto;
@@ -817,13 +817,13 @@ a:hover{text-decoration:underline}
               </div>
               <div class="row">
                 <label>Min steer spd (deg/s)</label>
-                <input class="num-input" type="number" id="cfgMinSteerSpd" min="-500" max="-1" value="-220" step="1" inputmode="numeric">
-                <div class="small" id="cfgMinSteerSpdVal">-220</div>
+                <input class="num-input" type="number" id="cfgMinSteerSpd" min="-500" max="-1" value="-50" step="1" inputmode="numeric">
+                <div class="small" id="cfgMinSteerSpdVal">-50</div>
               </div>
               <div class="row">
                 <label>Max steer spd (deg/s)</label>
-                <input class="num-input" type="number" id="cfgMaxSteerSpd" min="1" max="500" value="220" step="1" inputmode="numeric">
-                <div class="small" id="cfgMaxSteerSpdVal">220</div>
+                <input class="num-input" type="number" id="cfgMaxSteerSpd" min="1" max="500" value="50" step="1" inputmode="numeric">
+                <div class="small" id="cfgMaxSteerSpdVal">50</div>
               </div>
             </div>
 
@@ -968,8 +968,8 @@ const CAR_CONFIG_DEFAULTS = {
   max_accel: 12.0,
   min_steering_angle_deg: -40.0,
   max_steering_angle_deg: 40.0,
-  min_steering_speed_deg_s: -220.0,
-  max_steering_speed_deg_s: 220.0,
+  min_steering_speed_deg_s: -50.0,
+  max_steering_speed_deg_s: 50.0,
 };
 const carModelConfig = { ...CAR_CONFIG_DEFAULTS };
 

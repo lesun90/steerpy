@@ -10,6 +10,6 @@ car_config = {
     "max_accel": 12.0,
     "min_steering_angle_deg": -40.0,
     "max_steering_angle_deg": 40.0,
-    "min_steering_speed_deg_s": -220.0,
-    "max_steering_speed_deg_s": 220.0,
+    "min_steering_speed_deg_s": -50.0,
+    "max_steering_speed_deg_s": 50.0,
 }

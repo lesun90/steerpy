@@ -787,13 +787,13 @@ a:hover{text-decoration:underline}
               </div>
               <div class="row">
                 <label>Min speed (m/s)</label>
-                <input class="num-input" type="number" id="cfgMinSpeed" min="-20" max="20" value="-12" step="0.5" inputmode="decimal">
-                <div class="small" id="cfgMinSpeedVal">-12.0</div>
+                <input class="num-input" type="number" id="cfgMinSpeed" min="-20" max="20" value="-2" step="0.5" inputmode="decimal">
+                <div class="small" id="cfgMinSpeedVal">-2.0</div>
               </div>
               <div class="row">
                 <label>Max speed (m/s)</label>
-                <input class="num-input" type="number" id="cfgMaxSpeed" min="1" max="60" value="36" step="0.5" inputmode="decimal">
-                <div class="small" id="cfgMaxSpeedVal">36.0</div>
+                <input class="num-input" type="number" id="cfgMaxSpeed" min="1" max="60" value="10" step="0.5" inputmode="decimal">
+                <div class="small" id="cfgMaxSpeedVal">10.0</div>
               </div>
               <div class="row">
                 <label>Min accel (m/s²)</label>
@@ -817,13 +817,13 @@ a:hover{text-decoration:underline}
               </div>
               <div class="row">
                 <label>Min steer spd (deg/s)</label>
-                <input class="num-input" type="number" id="cfgMinSteerSpd" min="-500" max="-1" value="-50" step="1" inputmode="numeric">
-                <div class="small" id="cfgMinSteerSpdVal">-50</div>
+                <input class="num-input" type="number" id="cfgMinSteerSpd" min="-500" max="-1" value="-200" step="1" inputmode="numeric">
+                <div class="small" id="cfgMinSteerSpdVal">-200</div>
               </div>
               <div class="row">
                 <label>Max steer spd (deg/s)</label>
-                <input class="num-input" type="number" id="cfgMaxSteerSpd" min="1" max="500" value="50" step="1" inputmode="numeric">
-                <div class="small" id="cfgMaxSteerSpdVal">50</div>
+                <input class="num-input" type="number" id="cfgMaxSteerSpd" min="1" max="500" value="200" step="1" inputmode="numeric">
+                <div class="small" id="cfgMaxSteerSpdVal">200</div>
               </div>
             </div>
 
@@ -962,14 +962,14 @@ const CAR_CONFIG_DEFAULTS = {
   width: 2.0,
   length: 4.5,
   wheelbase: 2.8,
-  min_speed: -12.0,
-  max_speed: 36.0,
+  min_speed: -2.0,
+  max_speed: 10.0,
   min_accel: 0.0,
   max_accel: 12.0,
   min_steering_angle_deg: -40.0,
   max_steering_angle_deg: 40.0,
-  min_steering_speed_deg_s: -50.0,
-  max_steering_speed_deg_s: 50.0,
+  min_steering_speed_deg_s: -200.0,
+  max_steering_speed_deg_s: 200.0,
 };
 const carModelConfig = { ...CAR_CONFIG_DEFAULTS };
 
@@ -1201,7 +1201,7 @@ const WORLD_ORIGIN = () => ({ x: W/2 + viewPanX, y: H/2 + viewPanY });
 const car = {
   // ── Position / kinematics (WORLD UNITS: meters, seconds) ───────
   x: 0, y: 0, angle: 0,          // angle in degrees, 0=+x (right), +CCW, y up
-  speed: 0, min_speed: -12, max_speed: 36, // m/s (forward + reverse)
+  speed: 0, min_speed: -2, max_speed: 10, // m/s (forward + reverse)
 
   vx: 0, vy: 0,                  // m/s (drift model)
   length: 4.5,                   // meters (body length)

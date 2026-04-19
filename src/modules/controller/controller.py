@@ -20,6 +20,7 @@
 # Helpers:
 #   car.log(msg), print(msg), drawLine(line, width, color)
 
+
 def controller(car, trajectory):
     if not trajectory:
         return [0.0, 0.0]
